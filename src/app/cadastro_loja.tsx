@@ -1,42 +1,33 @@
-import { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
+import { useState } from "react";
+import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-import { router } from 'expo-router';
-import { addDoc, collection } from 'firebase/firestore';
-import { db } from '../services/firebaseConfig';
+import { router } from "expo-router";
+import { addDoc, collection } from "firebase/firestore";
+import { db } from "../services/firebaseConfig";
 
 export default function CadastroLoja() {
-  const [nome, setNome] = useState('');
-  const [cidade, setCidade] = useState('');
-  const [estado, setEstado] = useState('');
+  const [nome, setNome] = useState("");
+  const [cidade, setCidade] = useState("");
+  const [estado, setEstado] = useState("");
 
   async function salvarLoja() {
     try {
-      await addDoc(collection(db, 'lojas'), {
+      await addDoc(collection(db, "lojas"), {
         nome,
         cidade,
         estado,
         criadoEm: new Date(),
       });
 
-      Alert.alert('Sucesso', 'Loja cadastrada com sucesso!');
+      Alert.alert("Sucesso", "Loja cadastrada com sucesso!");
 
-      setNome('');
-      setCidade('');
-      setEstado('');
+      setNome("");
+      setCidade("");
+      setEstado("");
     } catch (error) {
       console.log(error);
 
-      Alert.alert(
-        'Erro',
-        'Não foi possível cadastrar a loja.'
-      );
+      Alert.alert("Erro", "Não foi possível cadastrar a loja.");
     }
   }
 
@@ -44,15 +35,15 @@ export default function CadastroLoja() {
     <View
       style={{
         flex: 1,
-        backgroundColor: '#121212',
+        backgroundColor: "#121212",
         padding: 20,
       }}
     >
       <Text
         style={{
-          color: 'white',
+          color: "white",
           fontSize: 28,
-          fontWeight: 'bold',
+          fontWeight: "bold",
           marginTop: 60,
           marginBottom: 30,
         }}
@@ -67,11 +58,11 @@ export default function CadastroLoja() {
         onChangeText={setNome}
         style={{
           borderWidth: 1,
-          borderColor: '#444',
+          borderColor: "#444",
           borderRadius: 8,
           padding: 12,
           marginBottom: 15,
-          color: 'white',
+          color: "white",
         }}
       />
 
@@ -82,11 +73,11 @@ export default function CadastroLoja() {
         onChangeText={setCidade}
         style={{
           borderWidth: 1,
-          borderColor: '#444',
+          borderColor: "#444",
           borderRadius: 8,
           padding: 12,
           marginBottom: 15,
-          color: 'white',
+          color: "white",
         }}
       />
 
@@ -97,27 +88,27 @@ export default function CadastroLoja() {
         onChangeText={setEstado}
         style={{
           borderWidth: 1,
-          borderColor: '#444',
+          borderColor: "#444",
           borderRadius: 8,
           padding: 12,
           marginBottom: 25,
-          color: 'white',
+          color: "white",
         }}
       />
 
       <TouchableOpacity
         onPress={salvarLoja}
         style={{
-          backgroundColor: '#2563EB',
+          backgroundColor: "#2563EB",
           padding: 15,
           borderRadius: 10,
         }}
       >
         <Text
           style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 'bold',
+            color: "white",
+            textAlign: "center",
+            fontWeight: "bold",
           }}
         >
           Salvar Loja
@@ -127,7 +118,7 @@ export default function CadastroLoja() {
       <TouchableOpacity
         onPress={() => router.back()}
         style={{
-          backgroundColor: '#444',
+          backgroundColor: "#444",
           padding: 15,
           borderRadius: 10,
           marginTop: 10,
@@ -135,9 +126,9 @@ export default function CadastroLoja() {
       >
         <Text
           style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 'bold',
+            color: "white",
+            textAlign: "center",
+            fontWeight: "bold",
           }}
         >
           Voltar

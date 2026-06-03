@@ -1,19 +1,16 @@
-import { View, Text, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
-import { useState, useEffect } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
-import { db } from '../services/firebaseConfig';
+import { router } from "expo-router";
+import { collection, onSnapshot } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import { Text, TouchableOpacity, View } from "react-native";
+import { db } from "../services/firebaseConfig";
 
 export default function Admin() {
   const [totalLojas, setTotalLojas] = useState(0);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, 'lojas'),
-      (snapshot) => {
-        setTotalLojas(snapshot.size);
-      }
-    );
+    const unsubscribe = onSnapshot(collection(db, "lojas"), (snapshot) => {
+      setTotalLojas(snapshot.size);
+    });
 
     return () => unsubscribe();
   }, []);
@@ -22,15 +19,15 @@ export default function Admin() {
     <View
       style={{
         flex: 1,
-        backgroundColor: '#121212',
+        backgroundColor: "#121212",
         padding: 20,
       }}
     >
       <Text
         style={{
-          color: 'white',
+          color: "white",
           fontSize: 28,
-          fontWeight: 'bold',
+          fontWeight: "bold",
           marginTop: 60,
           marginBottom: 30,
         }}
@@ -40,21 +37,21 @@ export default function Admin() {
 
       <View
         style={{
-          backgroundColor: '#1E1E1E',
+          backgroundColor: "#1E1E1E",
           padding: 20,
           borderRadius: 12,
           marginBottom: 15,
         }}
       >
-        <Text style={{ color: 'white', fontSize: 18 }}>
+        <Text style={{ color: "white", fontSize: 18 }}>
           📷 Fotos Recebidas Hoje
         </Text>
 
         <Text
           style={{
-            color: '#2563EB',
+            color: "#2563EB",
             fontSize: 32,
-            fontWeight: 'bold',
+            fontWeight: "bold",
             marginTop: 10,
           }}
         >
@@ -64,21 +61,21 @@ export default function Admin() {
 
       <View
         style={{
-          backgroundColor: '#1E1E1E',
+          backgroundColor: "#1E1E1E",
           padding: 20,
           borderRadius: 12,
           marginBottom: 15,
         }}
       >
-        <Text style={{ color: 'white', fontSize: 18 }}>
+        <Text style={{ color: "white", fontSize: 18 }}>
           🏪 Lojas Cadastradas
         </Text>
 
         <Text
           style={{
-            color: '#22C55E',
+            color: "#22C55E",
             fontSize: 32,
-            fontWeight: 'bold',
+            fontWeight: "bold",
             marginTop: 10,
           }}
         >
@@ -87,9 +84,9 @@ export default function Admin() {
       </View>
 
       <TouchableOpacity
-        onPress={() => router.push('/cadastro_loja' as any)}
+        onPress={() => router.push("/cadastro_loja" as any)}
         style={{
-          backgroundColor: '#2563EB',
+          backgroundColor: "#2563EB",
           padding: 15,
           borderRadius: 10,
           marginTop: 10,
@@ -97,9 +94,9 @@ export default function Admin() {
       >
         <Text
           style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 'bold',
+            color: "white",
+            textAlign: "center",
+            fontWeight: "bold",
           }}
         >
           Cadastrar Loja
@@ -107,9 +104,9 @@ export default function Admin() {
       </TouchableOpacity>
 
       <TouchableOpacity
-        onPress={() => router.push('/ver_lojas' as any)}
+        onPress={() => router.push("/ver_lojas" as any)}
         style={{
-          backgroundColor: '#16A34A',
+          backgroundColor: "#16A34A",
           padding: 15,
           borderRadius: 10,
           marginTop: 10,
@@ -117,9 +114,9 @@ export default function Admin() {
       >
         <Text
           style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 'bold',
+            color: "white",
+            textAlign: "center",
+            fontWeight: "bold",
           }}
         >
           Ver Lojas
@@ -127,9 +124,9 @@ export default function Admin() {
       </TouchableOpacity>
 
       <TouchableOpacity
-        onPress={() => router.push('/cadastro_promotor' as any)}
+        onPress={() => router.push("/cadastro_promotor" as any)}
         style={{
-          backgroundColor: '#9333EA',
+          backgroundColor: "#9333EA",
           padding: 15,
           borderRadius: 10,
           marginTop: 10,
@@ -137,9 +134,9 @@ export default function Admin() {
       >
         <Text
           style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 'bold',
+            color: "white",
+            textAlign: "center",
+            fontWeight: "bold",
           }}
         >
           Cadastrar Promotor

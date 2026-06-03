@@ -1,15 +1,9 @@
-import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  FlatList,
-  Alert,
-} from 'react-native';
+import { useEffect, useState } from "react";
+import { Alert, FlatList, Text, TouchableOpacity, View } from "react-native";
 
-import { router } from 'expo-router';
-import { auth, db } from '../services/firebaseConfig';
-import { doc, getDoc } from 'firebase/firestore';
+import { router } from "expo-router";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../services/firebaseConfig";
 
 type Loja = {
   id: string;
@@ -19,7 +13,7 @@ type Loja = {
 };
 
 export default function Promotor() {
-  const [nome, setNome] = useState('');
+  const [nome, setNome] = useState("");
   const [lojas, setLojas] = useState<Loja[]>([]);
 
   async function carregarDadosPromotor() {
@@ -27,16 +21,16 @@ export default function Promotor() {
       const usuarioAtual = auth.currentUser;
 
       if (!usuarioAtual) {
-        Alert.alert('Erro', 'Usuário não encontrado.');
-        router.replace('/' as any);
+        Alert.alert("Erro", "Usuário não encontrado.");
+        router.replace("/" as any);
         return;
       }
 
-      const usuarioRef = doc(db, 'usuarios', usuarioAtual.uid);
+      const usuarioRef = doc(db, "usuarios", usuarioAtual.uid);
       const usuarioSnap = await getDoc(usuarioRef);
 
       if (!usuarioSnap.exists()) {
-        Alert.alert('Erro', 'Usuário não cadastrado no sistema.');
+        Alert.alert("Erro", "Usuário não cadastrado no sistema.");
         return;
       }
 
@@ -49,7 +43,7 @@ export default function Promotor() {
       const lojasCarregadas: Loja[] = [];
 
       for (const lojaId of lojasIds) {
-        const lojaRef = doc(db, 'lojas', lojaId);
+        const lojaRef = doc(db, "lojas", lojaId);
         const lojaSnap = await getDoc(lojaRef);
 
         if (lojaSnap.exists()) {
@@ -63,7 +57,7 @@ export default function Promotor() {
       setLojas(lojasCarregadas);
     } catch (error) {
       console.log(error);
-      Alert.alert('Erro', 'Não foi possível carregar as lojas.');
+      Alert.alert("Erro", "Não foi possível carregar as lojas.");
     }
   }
 
@@ -75,15 +69,15 @@ export default function Promotor() {
     <View
       style={{
         flex: 1,
-        backgroundColor: '#121212',
+        backgroundColor: "#121212",
         padding: 20,
       }}
     >
       <Text
         style={{
-          color: 'white',
+          color: "white",
           fontSize: 28,
-          fontWeight: 'bold',
+          fontWeight: "bold",
           marginTop: 60,
           marginBottom: 10,
         }}
@@ -93,19 +87,19 @@ export default function Promotor() {
 
       <Text
         style={{
-          color: '#aaa',
+          color: "#aaa",
           fontSize: 16,
           marginBottom: 25,
         }}
       >
-        Olá, {nome || 'promotor'}
+        Olá, {nome || "promotor"}
       </Text>
 
       <Text
         style={{
-          color: 'white',
+          color: "white",
           fontSize: 20,
-          fontWeight: 'bold',
+          fontWeight: "bold",
           marginBottom: 15,
         }}
       >
@@ -116,14 +110,14 @@ export default function Promotor() {
         data={lojas}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          <Text style={{ color: '#888', marginTop: 10 }}>
+          <Text style={{ color: "#888", marginTop: 10 }}>
             Nenhuma loja vinculada ao seu usuário.
           </Text>
         }
         renderItem={({ item }) => (
           <View
             style={{
-              backgroundColor: '#1E1E1E',
+              backgroundColor: "#1E1E1E",
               padding: 15,
               borderRadius: 10,
               marginBottom: 12,
@@ -131,9 +125,9 @@ export default function Promotor() {
           >
             <Text
               style={{
-                color: 'white',
+                color: "white",
                 fontSize: 18,
-                fontWeight: 'bold',
+                fontWeight: "bold",
               }}
             >
               🏪 {item.nome}
@@ -141,7 +135,7 @@ export default function Promotor() {
 
             <Text
               style={{
-                color: '#aaa',
+                color: "#aaa",
                 marginTop: 5,
                 marginBottom: 15,
               }}
@@ -150,17 +144,26 @@ export default function Promotor() {
             </Text>
 
             <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: "/enviar_foto",
+                  params: {
+                    lojaId: item.id,
+                    lojaNome: item.nome,
+                  },
+                } as any)
+              }
               style={{
-                backgroundColor: '#2563EB',
+                backgroundColor: "#2563EB",
                 padding: 12,
                 borderRadius: 8,
               }}
             >
               <Text
                 style={{
-                  color: 'white',
-                  textAlign: 'center',
-                  fontWeight: 'bold',
+                  color: "white",
+                  textAlign: "center",
+                  fontWeight: "bold",
                 }}
               >
                 Enviar Foto
@@ -171,9 +174,9 @@ export default function Promotor() {
       />
 
       <TouchableOpacity
-        onPress={() => router.replace('/' as any)}
+        onPress={() => router.replace("/" as any)}
         style={{
-          backgroundColor: '#444',
+          backgroundColor: "#444",
           padding: 15,
           borderRadius: 10,
           marginTop: 10,
@@ -181,9 +184,9 @@ export default function Promotor() {
       >
         <Text
           style={{
-            color: 'white',
-            textAlign: 'center',
-            fontWeight: 'bold',
+            color: "white",
+            textAlign: "center",
+            fontWeight: "bold",
           }}
         >
           Sair

@@ -1,17 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
-  View,
+  Alert,
+  FlatList,
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
-  FlatList,
-} from 'react-native';
+  View,
+} from "react-native";
 
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { auth, db } from '../services/firebaseConfig';
-import { router } from 'expo-router';
+import { router } from "expo-router";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { collection, doc, onSnapshot, setDoc } from "firebase/firestore";
+import { auth, db } from "../services/firebaseConfig";
 
 type Loja = {
   id: string;
@@ -21,14 +21,14 @@ type Loja = {
 };
 
 export default function CadastroPromotor() {
-  const [nome, setNome] = useState('');
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [lojasSelecionadas, setLojasSelecionadas] = useState<string[]>([]);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'lojas'), (snapshot) => {
+    const unsubscribe = onSnapshot(collection(db, "lojas"), (snapshot) => {
       const lista = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
@@ -51,52 +51,52 @@ export default function CadastroPromotor() {
   async function salvarPromotor() {
     try {
       if (!nome || !email || !senha) {
-        Alert.alert('Atenção', 'Preencha nome, email e senha.');
+        Alert.alert("Atenção", "Preencha nome, email e senha.");
         return;
       }
 
       if (lojasSelecionadas.length === 0) {
-        Alert.alert('Atenção', 'Selecione pelo menos uma loja.');
+        Alert.alert("Atenção", "Selecione pelo menos uma loja.");
         return;
       }
 
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
-        senha
+        senha,
       );
 
       const uid = userCredential.user.uid;
 
-      await setDoc(doc(db, 'usuarios', uid), {
+      await setDoc(doc(db, "usuarios", uid), {
         nome,
         email,
-        tipo: 'promotor',
+        tipo: "promotor",
         lojasIds: lojasSelecionadas,
         criadoEm: new Date(),
       });
 
-      Alert.alert('Sucesso', 'Promotor cadastrado com sucesso!');
+      Alert.alert("Sucesso", "Promotor cadastrado com sucesso!");
 
-      setNome('');
-      setEmail('');
-      setSenha('');
+      setNome("");
+      setEmail("");
+      setSenha("");
       setLojasSelecionadas([]);
 
       router.back();
     } catch (error: any) {
       console.log(error);
-      Alert.alert('Erro', error.message);
+      Alert.alert("Erro", error.message);
     }
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#121212', padding: 20 }}>
+    <View style={{ flex: 1, backgroundColor: "#121212", padding: 20 }}>
       <Text
         style={{
-          color: 'white',
+          color: "white",
           fontSize: 28,
-          fontWeight: 'bold',
+          fontWeight: "bold",
           marginTop: 60,
           marginBottom: 25,
         }}
@@ -133,9 +133,9 @@ export default function CadastroPromotor() {
 
       <Text
         style={{
-          color: 'white',
+          color: "white",
           fontSize: 18,
-          fontWeight: 'bold',
+          fontWeight: "bold",
           marginBottom: 10,
         }}
       >
@@ -153,17 +153,17 @@ export default function CadastroPromotor() {
             <TouchableOpacity
               onPress={() => alternarLoja(item.id)}
               style={{
-                backgroundColor: selecionada ? '#2563EB' : '#1E1E1E',
+                backgroundColor: selecionada ? "#2563EB" : "#1E1E1E",
                 padding: 15,
                 borderRadius: 10,
                 marginBottom: 10,
               }}
             >
-              <Text style={{ color: 'white', fontWeight: 'bold' }}>
+              <Text style={{ color: "white", fontWeight: "bold" }}>
                 🏪 {item.nome}
               </Text>
 
-              <Text style={{ color: '#ccc', marginTop: 4 }}>
+              <Text style={{ color: "#ccc", marginTop: 4 }}>
                 📍 {item.cidade} - {item.estado}
               </Text>
             </TouchableOpacity>
@@ -174,12 +174,14 @@ export default function CadastroPromotor() {
       <TouchableOpacity
         onPress={salvarPromotor}
         style={{
-          backgroundColor: '#9333EA',
+          backgroundColor: "#9333EA",
           padding: 15,
           borderRadius: 10,
         }}
       >
-        <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold' }}>
+        <Text
+          style={{ color: "white", textAlign: "center", fontWeight: "bold" }}
+        >
           Salvar Promotor
         </Text>
       </TouchableOpacity>
@@ -187,13 +189,15 @@ export default function CadastroPromotor() {
       <TouchableOpacity
         onPress={() => router.back()}
         style={{
-          backgroundColor: '#444',
+          backgroundColor: "#444",
           padding: 15,
           borderRadius: 10,
           marginTop: 10,
         }}
       >
-        <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold' }}>
+        <Text
+          style={{ color: "white", textAlign: "center", fontWeight: "bold" }}
+        >
           Voltar
         </Text>
       </TouchableOpacity>
@@ -203,9 +207,9 @@ export default function CadastroPromotor() {
 
 const input = {
   borderWidth: 1,
-  borderColor: '#444',
+  borderColor: "#444",
   borderRadius: 8,
   padding: 12,
   marginBottom: 15,
-  color: 'white',
+  color: "white",
 };
