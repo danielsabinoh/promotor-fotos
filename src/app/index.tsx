@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { router } from "expo-router";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
 import { auth, db } from "../services/firebaseConfig";
@@ -10,6 +13,7 @@ import { auth, db } from "../services/firebaseConfig";
 export default function Home() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [mostrarSenha, setMostrarSenha] = useState(false);
 
   async function fazerLogin() {
     try {
@@ -37,10 +41,32 @@ export default function Home() {
       if (usuario.tipo === "admin") {
         router.replace("/admin" as any);
       } else if (usuario.tipo === "promotor") {
-        router.replace("/promotor" as any);
+        if (usuario.primeiroAcesso === true) {
+          router.replace("/alterar_senha" as any);
+        } else {
+          router.replace("/promotor" as any);
+        }
       } else {
         Alert.alert("Erro", "Tipo de usuário inválido.");
       }
+    } catch (error: any) {
+      Alert.alert("Erro", error.message);
+    }
+  }
+
+  async function esqueciSenha() {
+    try {
+      if (!email) {
+        Alert.alert("Atenção", "Digite seu email primeiro.");
+        return;
+      }
+
+      await sendPasswordResetEmail(auth, email);
+
+      Alert.alert(
+        "Email enviado",
+        "Verifique sua caixa de entrada para redefinir sua senha.",
+      );
     } catch (error: any) {
       Alert.alert("Erro", error.message);
     }
@@ -84,21 +110,41 @@ export default function Home() {
         }}
       />
 
-      <TextInput
-        placeholder="Senha"
-        placeholderTextColor="#888"
-        value={senha}
-        onChangeText={setSenha}
-        secureTextEntry
+      <View
         style={{
+          flexDirection: "row",
+          alignItems: "center",
           borderWidth: 1,
           borderColor: "#444",
           borderRadius: 8,
-          padding: 12,
           marginBottom: 20,
-          color: "white",
+          paddingHorizontal: 12,
         }}
-      />
+      >
+        <TextInput
+          placeholder="Senha"
+          placeholderTextColor="#888"
+          value={senha}
+          onChangeText={setSenha}
+          secureTextEntry={!mostrarSenha}
+          style={{
+            flex: 1,
+            paddingVertical: 12,
+            color: "white",
+          }}
+        />
+
+        <TouchableOpacity onPress={() => setMostrarSenha(!mostrarSenha)}>
+          <Text
+            style={{
+              color: "#60A5FA",
+              fontSize: 18,
+            }}
+          >
+            {mostrarSenha ? "🙈" : "👁️"}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <TouchableOpacity
         onPress={fazerLogin}
@@ -116,6 +162,23 @@ export default function Home() {
           }}
         >
           Entrar
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={esqueciSenha}
+        style={{
+          marginTop: 15,
+        }}
+      >
+        <Text
+          style={{
+            color: "#60A5FA",
+            textAlign: "center",
+            fontWeight: "bold",
+          }}
+        >
+          Esqueci minha senha
         </Text>
       </TouchableOpacity>
     </View>

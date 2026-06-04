@@ -73,6 +73,7 @@ export default function CadastroPromotor() {
         email,
         tipo: "promotor",
         lojasIds: lojasSelecionadas,
+        primeiroAcesso: true,
         criadoEm: new Date(),
       });
 
