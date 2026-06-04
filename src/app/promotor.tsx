@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alert, FlatList, Text, TouchableOpacity, View } from "react-native";
 
+import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../services/firebaseConfig";
@@ -36,7 +37,7 @@ export default function Promotor() {
 
       const usuarioData = usuarioSnap.data();
 
-      setNome(usuarioData.nome);
+      setNome(usuarioData.nome || "");
 
       const lojasIds = usuarioData.lojasIds || [];
 
@@ -73,17 +74,43 @@ export default function Promotor() {
         padding: 20,
       }}
     >
-      <Text
+      <View
         style={{
-          color: "white",
-          fontSize: 28,
-          fontWeight: "bold",
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
           marginTop: 60,
           marginBottom: 10,
         }}
       >
-        Área do Promotor
-      </Text>
+        <Text
+          style={{
+            color: "white",
+            fontSize: 28,
+            fontWeight: "bold",
+          }}
+        >
+          Área do Promotor
+        </Text>
+
+        <TouchableOpacity
+          onPress={() => router.push("/perfil_promotor" as any)}
+          style={{
+            backgroundColor: "#1E1E1E",
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <TouchableOpacity
+            onPress={() => router.push("/perfil_promotor" as any)}
+          >
+            <MaterialIcons name="account-circle" size={38} color="#60A5FA" />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
 
       <Text
         style={{

@@ -114,7 +114,7 @@ export default function Admin() {
       <TouchableOpacity
         onPress={() => router.push("/cadastro_loja" as any)}
         style={{
-          backgroundColor: "#2563EB",
+          backgroundColor: "#2563eb",
           padding: 15,
           borderRadius: 10,
           marginTop: 10,
@@ -130,7 +130,7 @@ export default function Admin() {
       <TouchableOpacity
         onPress={() => router.push("/ver_lojas" as any)}
         style={{
-          backgroundColor: "#16A34A",
+          backgroundColor: "#2563eb",
           padding: 15,
           borderRadius: 10,
           marginTop: 10,
@@ -146,7 +146,7 @@ export default function Admin() {
       <TouchableOpacity
         onPress={() => router.push("/cadastro_promotor" as any)}
         style={{
-          backgroundColor: "#9333EA",
+          backgroundColor: "#2563eb",
           padding: 15,
           borderRadius: 10,
           marginTop: 10,
@@ -162,7 +162,7 @@ export default function Admin() {
       <TouchableOpacity
         onPress={() => router.push("/ver_fotos" as any)}
         style={{
-          backgroundColor: "#F59E0B",
+          backgroundColor: "#2563eb",
           padding: 15,
           borderRadius: 10,
           marginTop: 10,
