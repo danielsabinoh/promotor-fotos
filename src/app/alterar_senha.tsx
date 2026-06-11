@@ -3,7 +3,7 @@ import { Alert, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { router } from "expo-router";
 import { updatePassword } from "firebase/auth";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 import { auth, db } from "../services/firebaseConfig";
 
@@ -35,13 +35,22 @@ export default function AlterarSenha() {
 
       await updatePassword(usuarioAtual, novaSenha);
 
-      await updateDoc(doc(db, "usuarios", usuarioAtual.uid), {
+      const usuarioRef = doc(db, "usuarios", usuarioAtual.uid);
+
+      await updateDoc(usuarioRef, {
         primeiroAcesso: false,
       });
 
       Alert.alert("Sucesso", "Senha alterada com sucesso!");
 
-      router.replace("/promotor" as any);
+      const usuarioSnap = await getDoc(usuarioRef);
+      const tipo = usuarioSnap.data()?.tipo;
+
+      router.replace(
+        tipo === "admin" || tipo === "super_admin"
+          ? ("/admin" as any)
+          : ("/promotor" as any),
+      );
     } catch (error: any) {
       console.log(error);
       Alert.alert("Erro", error.message);

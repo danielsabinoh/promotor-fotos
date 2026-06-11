@@ -32,7 +32,9 @@ import { db } from "../services/firebaseConfig";
 type Foto = {
   id: string;
   lojaNome: string;
-  promotorEmail: string;
+  promotorId?: string;
+  promotorNome?: string;
+  promotorEmail?: string;
   observacao: string;
   imagemBase64?: string;
   imagemUrl?: string;
@@ -77,6 +79,9 @@ function obterImagemUri(foto: Foto) {
 
 export default function VerFotos() {
   const [fotos, setFotos] = useState<Foto[]>([]);
+  const [promotores, setPromotores] = useState<
+    Record<string, { nome: string; email: string }>
+  >({});
   const [lojaFiltro, setLojaFiltro] = useState("Todas");
   const [promotorFiltro, setPromotorFiltro] = useState("Todos");
   const [filtroHoje, setFiltroHoje] = useState(false);
@@ -109,6 +114,33 @@ export default function VerFotos() {
       (error) => {
         console.log(error);
         Alert.alert("Erro", "Nao foi possivel carregar as fotos.");
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, "usuarios"),
+      (snapshot) => {
+        const mapa: Record<string, { nome: string; email: string }> = {};
+
+        snapshot.docs.forEach((item) => {
+          const dados = item.data();
+
+          if (dados.tipo === "promotor") {
+            mapa[item.id] = {
+              nome: dados.nome || dados.email || "Promotor",
+              email: dados.email || "",
+            };
+          }
+        });
+
+        setPromotores(mapa);
+      },
+      (error) => {
+        console.log(error);
       },
     );
 
@@ -148,6 +180,19 @@ export default function VerFotos() {
 
   function obterStatus(foto: Foto) {
     return foto.status || "pendente";
+  }
+
+  function obterNomePromotor(foto: Foto) {
+    if (foto.promotorNome) return foto.promotorNome;
+    if (foto.promotorId && promotores[foto.promotorId]) {
+      return promotores[foto.promotorId].nome;
+    }
+
+    return foto.promotorEmail || "Promotor nao identificado";
+  }
+
+  function obterChavePromotor(foto: Foto) {
+    return foto.promotorId || foto.promotorEmail || obterNomePromotor(foto);
   }
 
   function textoStatus(status: string) {
@@ -345,15 +390,26 @@ export default function VerFotos() {
   const lojasUnicas = ["Todas", ...new Set(fotos.map((foto) => foto.lojaNome))];
 
   const promotoresUnicos = [
-    "Todos",
-    ...new Set(fotos.map((foto) => foto.promotorEmail)),
+    { id: "Todos", nome: "Todos" },
+    ...Array.from(
+      new Map(
+        fotos.map((foto) => [
+          obterChavePromotor(foto),
+          {
+            id: obterChavePromotor(foto),
+            nome: obterNomePromotor(foto),
+          },
+        ]),
+      ).values(),
+    ).sort((a, b) => a.nome.localeCompare(b.nome)),
   ];
 
   const fotosFiltradas = fotos.filter((foto) => {
     const filtroLojaOk = lojaFiltro === "Todas" || foto.lojaNome === lojaFiltro;
 
     const filtroPromotorOk =
-      promotorFiltro === "Todos" || foto.promotorEmail === promotorFiltro;
+      promotorFiltro === "Todos" ||
+      obterChavePromotor(foto) === promotorFiltro;
 
     const filtroDataOk = !filtroHoje || ehHoje(foto.criadoEm);
     const filtroCategoriaOk =
@@ -464,11 +520,11 @@ export default function VerFotos() {
             >
               {promotoresUnicos.map((promotor) => (
                 <TouchableOpacity
-                  key={promotor}
-                  onPress={() => setPromotorFiltro(promotor)}
+                  key={promotor.id}
+                  onPress={() => setPromotorFiltro(promotor.id)}
                   style={{
                     backgroundColor:
-                      promotorFiltro === promotor ? "#9333EA" : "#1E1E1E",
+                      promotorFiltro === promotor.id ? "#9333EA" : "#1E1E1E",
                     paddingVertical: 10,
                     paddingHorizontal: 14,
                     borderRadius: 20,
@@ -476,7 +532,7 @@ export default function VerFotos() {
                   }}
                 >
                   <Text style={{ color: "white", fontWeight: "bold" }}>
-                    {promotor}
+                    {promotor.nome}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -620,8 +676,15 @@ export default function VerFotos() {
             </Text>
 
             <Text style={{ color: "#aaa", marginTop: 5 }}>
-              👤 {item.promotorEmail}
+              👤 {obterNomePromotor(item)}
             </Text>
+
+            {item.promotorEmail &&
+            item.promotorEmail !== obterNomePromotor(item) ? (
+              <Text selectable style={{ color: "#777", marginTop: 3 }}>
+                {item.promotorEmail}
+              </Text>
+            ) : null}
 
             <Text style={{ color: "#aaa", marginTop: 5, marginBottom: 10 }}>
               🕒 {formatarData(item.criadoEm)}
@@ -838,7 +901,7 @@ export default function VerFotos() {
                 🏪 {fotoSelecionada.lojaNome}
               </Text>
               <Text style={{ color: "#aaa", marginTop: 4 }}>
-                👤 {fotoSelecionada.promotorEmail}
+                👤 {obterNomePromotor(fotoSelecionada)}
               </Text>
               <Text style={{ color: "#aaa", marginTop: 4 }}>
                 🕒 {formatarData(fotoSelecionada.criadoEm)}

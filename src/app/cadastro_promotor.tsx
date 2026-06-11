@@ -9,9 +9,15 @@ import {
 } from "react-native";
 
 import { router } from "expo-router";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { collection, doc, onSnapshot, setDoc } from "firebase/firestore";
-import { auth, db } from "../services/firebaseConfig";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
+import { criarUsuarioAuth } from "../services/criarUsuarioAuth";
+import { db } from "../services/firebaseConfig";
 
 type Loja = {
   id: string;
@@ -60,21 +66,16 @@ export default function CadastroPromotor() {
         return;
       }
 
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        senha,
-      );
-
-      const uid = userCredential.user.uid;
+      const uid = await criarUsuarioAuth(email, senha);
 
       await setDoc(doc(db, "usuarios", uid), {
-        nome,
-        email,
+        nome: nome.trim(),
+        email: email.trim().toLowerCase(),
         tipo: "promotor",
         lojasIds: lojasSelecionadas,
+        ativo: true,
         primeiroAcesso: true,
-        criadoEm: new Date(),
+        criadoEm: serverTimestamp(),
       });
 
       Alert.alert("Sucesso", "Promotor cadastrado com sucesso!");

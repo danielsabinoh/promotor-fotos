@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
+  signOut,
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -38,11 +39,27 @@ export default function Home() {
 
       const usuario = usuarioSnap.data();
 
-      if (usuario.tipo === "admin") {
-        router.replace("/admin" as any);
-      } else if (usuario.tipo === "promotor") {
+      if (usuario.ativo === false) {
+        await signOut(auth);
+        Alert.alert(
+          "Acesso desativado",
+          "Seu acesso foi desativado por um administrador.",
+        );
+        return;
+      }
+
+      if (
+        usuario.tipo === "admin" ||
+        usuario.tipo === "super_admin" ||
+        usuario.tipo === "promotor"
+      ) {
         if (usuario.primeiroAcesso === true) {
           router.replace("/alterar_senha" as any);
+        } else if (
+          usuario.tipo === "admin" ||
+          usuario.tipo === "super_admin"
+        ) {
+          router.replace("/admin" as any);
         } else {
           router.replace("/promotor" as any);
         }

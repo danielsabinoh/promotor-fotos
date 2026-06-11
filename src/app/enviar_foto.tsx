@@ -13,7 +13,13 @@ import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { auth, db } from "../services/firebaseConfig";
 
 const categoriasFoto = [
@@ -122,11 +128,15 @@ export default function EnviarFoto() {
       setEnviando(true);
 
       const imagemBase64 = await prepararImagemBase64(imagem);
+      const usuarioSnap = await getDoc(doc(db, "usuarios", usuarioAtual.uid));
+      const promotorNome =
+        usuarioSnap.data()?.nome || usuarioAtual.displayName || usuarioAtual.email;
 
       await addDoc(collection(db, "fotos"), {
         lojaId,
         lojaNome,
         promotorId: usuarioAtual.uid,
+        promotorNome,
         promotorEmail: usuarioAtual.email,
         imagemBase64,
         categoria,
