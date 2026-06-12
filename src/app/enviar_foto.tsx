@@ -98,13 +98,25 @@ export default function EnviarFoto() {
   const parametros = useLocalSearchParams<{
     lojaId?: string | string[];
     lojaNome?: string | string[];
+    categoriaInicial?: string | string[];
+    refacaoDeId?: string | string[];
+    numeroRefacao?: string | string[];
+    motivoRefacao?: string | string[];
   }>();
   const lojaId = primeiroParametro(parametros.lojaId);
   const lojaNome = primeiroParametro(parametros.lojaNome) || "Loja";
+  const categoriaInicial = primeiroParametro(parametros.categoriaInicial);
+  const refacaoDeId = primeiroParametro(parametros.refacaoDeId);
+  const motivoRefacao = primeiroParametro(parametros.motivoRefacao) || "";
+  const numeroRefacao =
+    Number(primeiroParametro(parametros.numeroRefacao)) || 1;
+  const ehRefacao = !!refacaoDeId;
 
   const [imagem, setImagem] = useState<string | null>(null);
   const [observacao, setObservacao] = useState("");
-  const [categoria, setCategoria] = useState<string | null>(null);
+  const [categoria, setCategoria] = useState<string | null>(
+    categoriaInicial || null,
+  );
   const [etapaEnvio, setEtapaEnvio] = useState<EtapaEnvio>(null);
   const [envioConcluido, setEnvioConcluido] = useState(false);
 
@@ -206,6 +218,9 @@ export default function EnviarFoto() {
         observacao: observacao.trim(),
         criadoEm: serverTimestamp(),
         naLixeira: false,
+        refacaoDeId: refacaoDeId || null,
+        numeroRefacao: ehRefacao ? numeroRefacao : 0,
+        motivoRefacao: ehRefacao ? motivoRefacao : "",
       });
 
       setEnvioConcluido(true);
@@ -222,7 +237,7 @@ export default function EnviarFoto() {
 
   function prepararNovoEnvio() {
     setImagem(null);
-    setCategoria(null);
+    setCategoria(ehRefacao ? categoriaInicial || null : null);
     setObservacao("");
     setEnvioConcluido(false);
   }
@@ -251,10 +266,12 @@ export default function EnviarFoto() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={{ color: "white", fontSize: 27, fontWeight: "bold" }}>
-            Enviar foto
+            {ehRefacao ? "Refazer foto" : "Enviar foto"}
           </Text>
           <Text style={{ color: "#8E9AAF", paddingTop: 3 }}>
-            Novo registro de execução
+            {ehRefacao
+              ? `Nova versão do envio · Refação ${numeroRefacao}`
+              : "Novo registro de execução"}
           </Text>
         </View>
       </View>
@@ -294,6 +311,32 @@ export default function EnviarFoto() {
           </Text>
         </View>
       </View>
+
+      {ehRefacao ? (
+        <View
+          style={{
+            borderWidth: 1,
+            borderColor: "#71551B",
+            borderRadius: 8,
+            padding: 14,
+            backgroundColor: "#3D2D10",
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: 11,
+          }}
+        >
+          <MaterialIcons name="rate-review" size={24} color="#F4B740" />
+          <View style={{ flex: 1, gap: 5 }}>
+            <Text style={{ color: "#FCE6A9", fontWeight: "bold" }}>
+              Correção solicitada pelo responsável
+            </Text>
+            <Text style={{ color: "#D7C99F", lineHeight: 20 }}>
+              {motivoRefacao ||
+                "Confira a execução e envie uma nova foto para análise."}
+            </Text>
+          </View>
+        </View>
+      ) : null}
 
       <View style={{ gap: 11 }}>
         <TituloSecao numero="1" titulo="Foto" />
@@ -642,11 +685,14 @@ export default function EnviarFoto() {
 
             <View style={{ gap: 7 }}>
               <Text style={{ color: "white", fontSize: 21, fontWeight: "bold" }}>
-                Foto enviada para análise
+                {ehRefacao
+                  ? "Nova foto enviada para análise"
+                  : "Foto enviada para análise"}
               </Text>
               <Text style={{ color: "#AAB3C1", lineHeight: 21 }}>
-                O responsável poderá aprovar, rejeitar ou solicitar uma nova
-                foto.
+                {ehRefacao
+                  ? "A versão anterior foi preservada no histórico e esta nova foto está pendente de avaliação."
+                  : "O responsável poderá aprovar, rejeitar ou solicitar uma nova foto."}
               </Text>
             </View>
 
@@ -665,7 +711,9 @@ export default function EnviarFoto() {
               >
                 <MaterialIcons name="add-a-photo" size={20} color="white" />
                 <Text style={{ color: "white", fontWeight: "bold" }}>
-                  Enviar outra para esta loja
+                  {ehRefacao
+                    ? "Enviar outra foto para esta loja"
+                    : "Enviar outra para esta loja"}
                 </Text>
               </Pressable>
 

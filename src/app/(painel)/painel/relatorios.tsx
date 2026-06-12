@@ -13,6 +13,7 @@ type Foto = {
   promotorNome?: string;
   promotorEmail?: string;
   naLixeira?: boolean;
+  refacaoDeId?: string;
 };
 
 type LinhaResumoProps = {
@@ -69,7 +70,19 @@ export default function RelatoriosPainel() {
         ...item.data(),
       })) as Foto[];
 
-      setFotos(lista.filter((foto) => foto.naLixeira !== true));
+      const idsSubstituidos = new Set(
+        lista
+          .filter((foto) => foto.naLixeira !== true)
+          .map((foto) => foto.refacaoDeId)
+          .filter(Boolean),
+      );
+
+      setFotos(
+        lista.filter(
+          (foto) =>
+            foto.naLixeira !== true && !idsSubstituidos.has(foto.id),
+        ),
+      );
     });
   }, []);
 

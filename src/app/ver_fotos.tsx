@@ -24,10 +24,10 @@ import {
   onSnapshot,
   orderBy,
   query,
-  updateDoc,
 } from "firebase/firestore";
 
 import { db } from "../services/firebaseConfig";
+import { atualizarFotoComNotificacao } from "../services/notificacoes";
 
 type Foto = {
   id: string;
@@ -44,6 +44,9 @@ type Foto = {
   comentarioAdmin?: string;
   criadoEm: any;
   naLixeira?: boolean;
+  refacaoDeId?: string;
+  numeroRefacao?: number;
+  motivoRefacao?: string;
 };
 
 const categoriasFoto = [
@@ -110,7 +113,19 @@ export default function VerFotos() {
           ...doc.data(),
         })) as Foto[];
 
-        setFotos(lista.filter((foto) => foto.naLixeira !== true));
+        const idsSubstituidos = new Set(
+          lista
+            .filter((foto) => foto.naLixeira !== true)
+            .map((foto) => foto.refacaoDeId)
+            .filter(Boolean),
+        );
+
+        setFotos(
+          lista.filter(
+            (foto) =>
+              foto.naLixeira !== true && !idsSubstituidos.has(foto.id),
+          ),
+        );
       },
       (error) => {
         console.log(error);
@@ -311,9 +326,10 @@ export default function VerFotos() {
     if (!fotoSelecionada) return;
 
     try {
-      await updateDoc(doc(db, "fotos", fotoSelecionada.id), {
+      await atualizarFotoComNotificacao({
+        foto: fotoSelecionada,
         status,
-        comentarioAdmin:
+        comentario:
           status === "aprovada" ? "" : fotoSelecionada.comentarioAdmin || "",
       });
 
@@ -356,9 +372,10 @@ export default function VerFotos() {
     const comentario = comentarioAdmin.trim();
 
     try {
-      await updateDoc(doc(db, "fotos", fotoSelecionada.id), {
+      await atualizarFotoComNotificacao({
+        foto: fotoSelecionada,
         status: statusComComentario,
-        comentarioAdmin: comentario,
+        comentario,
       });
 
       setFotoSelecionada({
@@ -725,6 +742,25 @@ export default function VerFotos() {
               </View>
             </View>
 
+            {item.refacaoDeId ? (
+              <View
+                style={{
+                  backgroundColor: "#3D2D10",
+                  borderRadius: 8,
+                  padding: 10,
+                  marginBottom: 10,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <MaterialIcons name="history" size={19} color="#F4B740" />
+                <Text style={{ color: "#FCE6A9", fontWeight: "bold" }}>
+                  Refação {item.numeroRefacao || 1}
+                </Text>
+              </View>
+            ) : null}
+
             <TouchableOpacity onPress={() => abrirFoto(item)}>
               <Image
                 source={{ uri: obterImagemUri(item) }}
@@ -920,6 +956,14 @@ export default function VerFotos() {
               {fotoSelecionada.comentarioAdmin ? (
                 <Text style={{ color: "white", marginTop: 4, lineHeight: 20 }}>
                   Comentario: {fotoSelecionada.comentarioAdmin}
+                </Text>
+              ) : null}
+              {fotoSelecionada.refacaoDeId ? (
+                <Text style={{ color: "#F4B740", marginTop: 4, lineHeight: 20 }}>
+                  Refação {fotoSelecionada.numeroRefacao || 1}
+                  {fotoSelecionada.motivoRefacao
+                    ? ` · Motivo anterior: ${fotoSelecionada.motivoRefacao}`
+                    : ""}
                 </Text>
               ) : null}
             </View>

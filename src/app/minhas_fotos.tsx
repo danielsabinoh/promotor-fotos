@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -28,6 +28,7 @@ import { auth, db } from "../services/firebaseConfig";
 
 type Foto = {
   id: string;
+  lojaId?: string;
   lojaNome?: string;
   observacao?: string;
   imagemBase64?: string;
@@ -39,6 +40,9 @@ type Foto = {
   naLixeira?: boolean;
   excluidaEm?: any;
   excluidaPor?: string | null;
+  refacaoDeId?: string;
+  numeroRefacao?: number;
+  motivoRefacao?: string;
 };
 
 type ModoLista = "ativas" | "lixeira";
@@ -109,6 +113,7 @@ export default function MinhasFotos() {
   const parametros = useLocalSearchParams<{
     modoInicial?: string;
     statusInicial?: string;
+    fotoInicialId?: string;
   }>();
   const [fotos, setFotos] = useState<Foto[]>([]);
   const [modo, setModo] = useState<ModoLista>(
@@ -125,6 +130,7 @@ export default function MinhasFotos() {
   const [fotoSelecionada, setFotoSelecionada] = useState<Foto | null>(null);
   const [confirmacao, setConfirmacao] = useState<AcaoConfirmacao>(null);
   const [processando, setProcessando] = useState(false);
+  const fotoInicialProcessada = useRef(false);
 
   useEffect(() => {
     const usuarioAtual = auth.currentUser;
@@ -155,7 +161,19 @@ export default function MinhasFotos() {
   }, []);
 
   const fotosAtivas = useMemo(
-    () => fotos.filter((foto) => foto.naLixeira !== true),
+    () => {
+      const idsSubstituidos = new Set(
+        fotos
+          .filter((foto) => foto.naLixeira !== true)
+          .map((foto) => foto.refacaoDeId)
+          .filter(Boolean),
+      );
+
+      return fotos.filter(
+        (foto) =>
+          foto.naLixeira !== true && !idsSubstituidos.has(foto.id),
+      );
+    },
     [fotos],
   );
   const fotosLixeira = useMemo(
@@ -201,6 +219,18 @@ export default function MinhasFotos() {
     statusFiltro,
   ]);
 
+  useEffect(() => {
+    if (fotoInicialProcessada.current || !parametros.fotoInicialId) return;
+
+    const foto = fotosAtivas.find(
+      (item) => item.id === parametros.fotoInicialId,
+    );
+    if (!foto) return;
+
+    fotoInicialProcessada.current = true;
+    setFotoSelecionada(foto);
+  }, [fotosAtivas, parametros.fotoInicialId]);
+
   function formatarData(valor: any) {
     return obterData(valor)?.toLocaleString("pt-BR") || "Data nao disponivel";
   }
@@ -208,6 +238,29 @@ export default function MinhasFotos() {
   function trocarModo(novoModo: ModoLista) {
     setModo(novoModo);
     setFotoSelecionada(null);
+  }
+
+  function refazerFoto(foto: Foto) {
+    if (!foto.lojaId) {
+      Alert.alert(
+        "Loja não identificada",
+        "Esta foto antiga não possui o identificador da loja.",
+      );
+      return;
+    }
+
+    setFotoSelecionada(null);
+    router.push({
+      pathname: "/enviar_foto",
+      params: {
+        lojaId: foto.lojaId,
+        lojaNome: foto.lojaNome,
+        categoriaInicial: foto.categoria,
+        refacaoDeId: foto.id,
+        numeroRefacao: (foto.numeroRefacao || 0) + 1,
+        motivoRefacao: foto.comentarioAdmin || "",
+      },
+    } as any);
   }
 
   async function moverParaLixeira(foto: Foto) {
@@ -487,16 +540,43 @@ export default function MinhasFotos() {
                   </View>
                 ) : null}
 
-                <View style={{ flexDirection: "row", gap: 9 }}>
-                  <Pressable
-                    onPress={() => setFotoSelecionada(item)}
-                    style={estiloAcaoSecundaria}
+                {item.refacaoDeId ? (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 7,
+                    }}
                   >
-                    <MaterialIcons name="zoom-in" size={20} color="#AFC5F5" />
-                    <Text style={{ color: "#DDE7FB", fontWeight: "bold" }}>
-                      Visualizar
+                    <MaterialIcons name="history" size={18} color="#AFC5F5" />
+                    <Text style={{ color: "#AFC5F5", fontWeight: "bold" }}>
+                      Refação {item.numeroRefacao || 1}
                     </Text>
-                  </Pressable>
+                  </View>
+                ) : null}
+
+                <View style={{ flexDirection: "row", gap: 9 }}>
+                  {modo === "ativas" && status === "refazer" ? (
+                    <Pressable
+                      onPress={() => refazerFoto(item)}
+                      style={estiloAcaoRefazer}
+                    >
+                      <MaterialIcons name="replay" size={20} color="#FDE68A" />
+                      <Text style={{ color: "#FEF3C7", fontWeight: "bold" }}>
+                        Refazer foto
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      onPress={() => setFotoSelecionada(item)}
+                      style={estiloAcaoSecundaria}
+                    >
+                      <MaterialIcons name="zoom-in" size={20} color="#AFC5F5" />
+                      <Text style={{ color: "#DDE7FB", fontWeight: "bold" }}>
+                        Visualizar
+                      </Text>
+                    </Pressable>
+                  )}
 
                   {modo === "ativas" ? (
                     <Pressable
@@ -657,6 +737,27 @@ export default function MinhasFotos() {
                 <Text style={{ color: "#F3F4F6", lineHeight: 19 }}>
                   Comentario: {fotoSelecionada.comentarioAdmin}
                 </Text>
+              ) : null}
+              {modo === "ativas" &&
+              obterStatus(fotoSelecionada) === "refazer" ? (
+                <Pressable
+                  onPress={() => refazerFoto(fotoSelecionada)}
+                  style={{
+                    minHeight: 44,
+                    borderRadius: 7,
+                    backgroundColor: "#8A5A0A",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    marginTop: 6,
+                  }}
+                >
+                  <MaterialIcons name="replay" size={20} color="white" />
+                  <Text style={{ color: "white", fontWeight: "bold" }}>
+                    Enviar nova foto
+                  </Text>
+                </Pressable>
               ) : null}
             </View>
           ) : null}
@@ -863,6 +964,17 @@ const estiloAcaoRestaurar = {
   minHeight: 42,
   borderRadius: 7,
   backgroundColor: "#153727",
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+  gap: 7,
+};
+
+const estiloAcaoRefazer = {
+  flex: 1,
+  minHeight: 42,
+  borderRadius: 7,
+  backgroundColor: "#49310B",
   flexDirection: "row" as const,
   alignItems: "center" as const,
   justifyContent: "center" as const,

@@ -19,10 +19,10 @@ import {
   onSnapshot,
   orderBy,
   query,
-  updateDoc,
 } from "firebase/firestore";
 
 import { db } from "../../../services/firebaseConfig";
+import { atualizarFotoComNotificacao } from "../../../services/notificacoes";
 
 type Foto = {
   id: string;
@@ -38,7 +38,12 @@ type Foto = {
   comentarioAdmin?: string;
   criadoEm?: any;
   naLixeira?: boolean;
+  refacaoDeId?: string;
+  numeroRefacao?: number;
+  motivoRefacao?: string;
 };
+
+type AcaoAvaliacao = "refazer" | "rejeitada" | null;
 
 const statusOpcoes = ["Todos", "pendente", "aprovada", "refazer", "rejeitada"];
 
@@ -72,6 +77,9 @@ export default function FotosWeb() {
   const [categoria, setCategoria] = useState("Todas");
   const [status, setStatus] = useState("Todos");
   const [comentario, setComentario] = useState("");
+  const [acaoAvaliacao, setAcaoAvaliacao] =
+    useState<AcaoAvaliacao>(null);
+  const [mensagemSucesso, setMensagemSucesso] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
@@ -91,7 +99,19 @@ export default function FotosWeb() {
           ...item.data(),
         })) as Foto[];
 
-        setFotos(lista.filter((foto) => foto.naLixeira !== true));
+        const idsSubstituidos = new Set(
+          lista
+            .filter((foto) => foto.naLixeira !== true)
+            .map((foto) => foto.refacaoDeId)
+            .filter(Boolean),
+        );
+
+        setFotos(
+          lista.filter(
+            (foto) =>
+              foto.naLixeira !== true && !idsSubstituidos.has(foto.id),
+          ),
+        );
       },
       (error) => {
         console.log(error);
@@ -134,16 +154,27 @@ export default function FotosWeb() {
     try {
       setSalvando(true);
       const comentarioLimpo = comentario.trim();
-      await updateDoc(doc(db, "fotos", fotoAberta.id), {
+      await atualizarFotoComNotificacao({
+        foto: fotoAberta,
         status: novoStatus,
-        comentarioAdmin: novoStatus === "aprovada" ? "" : comentarioLimpo,
+        comentario: novoStatus === "aprovada" ? "" : comentarioLimpo,
       });
       setFotoAberta({
         ...fotoAberta,
         status: novoStatus,
         comentarioAdmin: novoStatus === "aprovada" ? "" : comentarioLimpo,
       });
-      if (novoStatus === "aprovada") setComentario("");
+      setMensagemSucesso(
+        novoStatus === "aprovada"
+          ? "Foto aprovada e promotor notificado."
+          : novoStatus === "refazer"
+            ? "Refação solicitada e promotor notificado."
+            : "Foto rejeitada e promotor notificado.",
+      );
+      if (novoStatus === "aprovada") {
+        setComentario("");
+        setAcaoAvaliacao(null);
+      }
     } catch (error: any) {
       Alert.alert("Erro", error.message || "Nao foi possivel atualizar a foto.");
     } finally {
@@ -190,13 +221,22 @@ export default function FotosWeb() {
   function abrirFoto(foto: Foto) {
     setFotoAberta(foto);
     setComentario(foto.comentarioAdmin || "");
+    setAcaoAvaliacao(null);
+    setMensagemSucesso("");
     setConfirmandoExclusao(false);
   }
 
   function fecharFoto() {
     if (excluindo) return;
     setConfirmandoExclusao(false);
+    setAcaoAvaliacao(null);
+    setMensagemSucesso("");
     setFotoAberta(null);
+  }
+
+  function selecionarAcao(acao: Exclude<AcaoAvaliacao, null>) {
+    setAcaoAvaliacao(acao);
+    setMensagemSucesso("");
   }
 
   return (
@@ -281,6 +321,31 @@ export default function FotosWeb() {
                   }}
                 />
                 <View style={{ padding: 14, gap: 8 }}>
+                  {foto.refacaoDeId ? (
+                    <View
+                      style={{
+                        alignSelf: "flex-start",
+                        backgroundColor: "#FFF1D9",
+                        borderRadius: 5,
+                        paddingVertical: 5,
+                        paddingHorizontal: 8,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 5,
+                      }}
+                    >
+                      <MaterialIcons name="history" size={15} color="#A6650B" />
+                      <Text
+                        style={{
+                          color: "#A6650B",
+                          fontSize: 11,
+                          fontWeight: "bold",
+                        }}
+                      >
+                        Refação {foto.numeroRefacao || 1}
+                      </Text>
+                    </View>
+                  ) : null}
                   <View
                     style={{
                       flexDirection: "row",
@@ -449,6 +514,15 @@ export default function FotosWeb() {
                     titulo="Observacao"
                     valor={fotoAberta.observacao || "Sem observacao"}
                   />
+                  {fotoAberta.refacaoDeId ? (
+                    <Info
+                      titulo={`Refação ${fotoAberta.numeroRefacao || 1}`}
+                      valor={
+                        fotoAberta.motivoRefacao ||
+                        "Nova versão enviada pelo promotor"
+                      }
+                    />
+                  ) : null}
                 </View>
 
                 <View
@@ -458,48 +532,151 @@ export default function FotosWeb() {
                   }}
                 />
 
-                <View style={{ gap: 9 }}>
-                  <Text style={{ color: "#34415A", fontWeight: "bold" }}>
-                    Comentario ao promotor
-                  </Text>
-                  <TextInput
-                    value={comentario}
-                    onChangeText={setComentario}
-                    multiline
-                    placeholder="Comentario opcional"
-                    placeholderTextColor="#9AA5B5"
-                    style={{
-                      minHeight: 94,
-                      borderWidth: 1,
-                      borderColor: "#D5DBE5",
-                      borderRadius: 7,
-                      padding: 11,
-                      color: "#172033",
-                      textAlignVertical: "top",
-                    }}
-                  />
-                </View>
-
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   <Acao
-                    titulo="Aprovar"
+                    titulo={salvando ? "Salvando..." : "Aprovar"}
                     icone="check-circle"
                     cor="#24864B"
                     onPress={() => atualizarStatus("aprovada")}
+                    disabled={salvando}
                   />
                   <Acao
                     titulo="Pedir refacao"
                     icone="replay"
                     cor="#B87312"
-                    onPress={() => atualizarStatus("refazer")}
+                    onPress={() => selecionarAcao("refazer")}
+                    selecionada={acaoAvaliacao === "refazer"}
+                    disabled={salvando}
                   />
                   <Acao
                     titulo="Rejeitar"
                     icone="cancel"
                     cor="#B5323E"
-                    onPress={() => atualizarStatus("rejeitada")}
+                    onPress={() => selecionarAcao("rejeitada")}
+                    selecionada={acaoAvaliacao === "rejeitada"}
+                    disabled={salvando}
                   />
                 </View>
+
+                {acaoAvaliacao ? (
+                  <View
+                    style={{
+                      borderWidth: 1,
+                      borderColor:
+                        acaoAvaliacao === "refazer" ? "#E0B568" : "#E4A1A8",
+                      borderRadius: 8,
+                      padding: 13,
+                      backgroundColor:
+                        acaoAvaliacao === "refazer" ? "#FFF9EF" : "#FFF5F6",
+                      gap: 10,
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <MaterialIcons
+                        name={
+                          acaoAvaliacao === "refazer" ? "replay" : "cancel"
+                        }
+                        size={20}
+                        color={
+                          acaoAvaliacao === "refazer" ? "#A6650B" : "#B5323E"
+                        }
+                      />
+                      <Text
+                        style={{
+                          color:
+                            acaoAvaliacao === "refazer"
+                              ? "#7A4B08"
+                              : "#8F2630",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {acaoAvaliacao === "refazer"
+                          ? "Solicitar nova foto"
+                          : "Rejeitar esta foto"}
+                      </Text>
+                    </View>
+
+                    <Text style={{ color: "#68758A", lineHeight: 19 }}>
+                      O comentário é opcional e será exibido ao promotor.
+                    </Text>
+
+                    <TextInput
+                      value={comentario}
+                      onChangeText={setComentario}
+                      editable={!salvando}
+                      multiline
+                      placeholder={
+                        acaoAvaliacao === "refazer"
+                          ? "Ex.: enquadrar toda a gôndola"
+                          : "Ex.: foto não corresponde à loja"
+                      }
+                      placeholderTextColor="#9AA5B5"
+                      style={{
+                        minHeight: 94,
+                        borderWidth: 1,
+                        borderColor: "#D5DBE5",
+                        borderRadius: 7,
+                        padding: 11,
+                        backgroundColor: "white",
+                        color: "#172033",
+                        textAlignVertical: "top",
+                      }}
+                    />
+
+                    <Pressable
+                      onPress={() => atualizarStatus(acaoAvaliacao)}
+                      disabled={salvando}
+                      style={{
+                        minHeight: 43,
+                        borderRadius: 7,
+                        backgroundColor:
+                          acaoAvaliacao === "refazer" ? "#B87312" : "#B5323E",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: salvando ? 0.65 : 1,
+                      }}
+                    >
+                      <Text style={{ color: "white", fontWeight: "bold" }}>
+                        {salvando
+                          ? "Salvando..."
+                          : acaoAvaliacao === "refazer"
+                            ? "Confirmar refação"
+                            : "Confirmar rejeição"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null}
+
+                {mensagemSucesso ? (
+                  <View
+                    style={{
+                      minHeight: 44,
+                      borderRadius: 7,
+                      backgroundColor: "#E5F5EB",
+                      borderWidth: 1,
+                      borderColor: "#A9D8BA",
+                      paddingHorizontal: 12,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <MaterialIcons
+                      name="check-circle"
+                      size={20}
+                      color="#24864B"
+                    />
+                    <Text style={{ flex: 1, color: "#247946", fontWeight: "bold" }}>
+                      {mensagemSucesso}
+                    </Text>
+                  </View>
+                ) : null}
 
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <Acao
@@ -794,28 +971,49 @@ type AcaoProps = {
   cor: string;
   onPress: () => void;
   contorno?: boolean;
+  selecionada?: boolean;
+  disabled?: boolean;
 };
 
-function Acao({ titulo, icone, cor, onPress, contorno }: AcaoProps) {
+function Acao({
+  titulo,
+  icone,
+  cor,
+  onPress,
+  contorno,
+  selecionada,
+  disabled,
+}: AcaoProps) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       style={{
         minHeight: 42,
         flexGrow: 1,
         borderRadius: 7,
-        borderWidth: contorno ? 1 : 0,
+        borderWidth: contorno || selecionada ? 2 : 0,
         borderColor: cor,
         paddingHorizontal: 12,
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
         gap: 7,
-        backgroundColor: contorno ? "white" : cor,
+        backgroundColor: contorno || selecionada ? "white" : cor,
+        opacity: disabled ? 0.65 : 1,
       }}
     >
-      <MaterialIcons name={icone} size={19} color={contorno ? cor : "white"} />
-      <Text style={{ color: contorno ? cor : "white", fontWeight: "bold" }}>
+      <MaterialIcons
+        name={icone}
+        size={19}
+        color={contorno || selecionada ? cor : "white"}
+      />
+      <Text
+        style={{
+          color: contorno || selecionada ? cor : "white",
+          fontWeight: "bold",
+        }}
+      >
         {titulo}
       </Text>
     </Pressable>

@@ -30,6 +30,7 @@ type Foto = {
   comentarioAdmin?: string;
   criadoEm?: any;
   naLixeira?: boolean;
+  refacaoDeId?: string;
 };
 
 function obterData(valor: any) {
@@ -69,6 +70,7 @@ export default function Promotor() {
   const [nome, setNome] = useState("");
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [fotos, setFotos] = useState<Foto[]>([]);
+  const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
 
   useEffect(() => {
     let unsubscribeFotos = () => {};
@@ -140,8 +142,32 @@ export default function Promotor() {
     return () => unsubscribeFotos();
   }, []);
 
+  useEffect(() => {
+    const usuarioAtual = auth.currentUser;
+    if (!usuarioAtual) return;
+
+    const consulta = query(
+      collection(db, "notificacoes"),
+      where("destinatarioId", "==", usuarioAtual.uid),
+      where("lida", "==", false),
+    );
+
+    return onSnapshot(consulta, (snapshot) => {
+      setNotificacoesNaoLidas(snapshot.size);
+    });
+  }, []);
+
   const resumo = useMemo(() => {
-    const ativas = fotos.filter((foto) => foto.naLixeira !== true);
+    const idsSubstituidos = new Set(
+      fotos
+        .filter((foto) => foto.naLixeira !== true)
+        .map((foto) => foto.refacaoDeId)
+        .filter(Boolean),
+    );
+    const ativas = fotos.filter(
+      (foto) =>
+        foto.naLixeira !== true && !idsSubstituidos.has(foto.id),
+    );
 
     return {
       ativas,
@@ -200,13 +226,60 @@ export default function Promotor() {
             {nome || "Promotor"}
           </Text>
         </View>
-        <Pressable
-          onPress={() => router.push("/perfil_promotor" as any)}
-          accessibilityLabel="Abrir perfil"
-          style={estiloBotaoIcone}
-        >
-          <MaterialIcons name="person-outline" size={25} color="#AFC5F5" />
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: 9 }}>
+          <Pressable
+            onPress={() => router.push("/notificacoes" as any)}
+            accessibilityLabel="Abrir notificações"
+            style={estiloBotaoIcone}
+          >
+            <MaterialIcons
+              name={
+                notificacoesNaoLidas > 0
+                  ? "notifications"
+                  : "notifications-none"
+              }
+              size={24}
+              color="#AFC5F5"
+            />
+            {notificacoesNaoLidas > 0 ? (
+              <View
+                style={{
+                  position: "absolute",
+                  top: -5,
+                  right: -5,
+                  minWidth: 20,
+                  height: 20,
+                  borderRadius: 10,
+                  backgroundColor: "#D83A4E",
+                  borderWidth: 2,
+                  borderColor: "#0F1115",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingHorizontal: 4,
+                }}
+              >
+                <Text
+                  style={{
+                    color: "white",
+                    fontSize: 10,
+                    fontWeight: "bold",
+                    fontVariant: ["tabular-nums"],
+                  }}
+                >
+                  {notificacoesNaoLidas > 9 ? "9+" : notificacoesNaoLidas}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push("/perfil_promotor" as any)}
+            accessibilityLabel="Abrir perfil"
+            style={estiloBotaoIcone}
+          >
+            <MaterialIcons name="person-outline" size={25} color="#AFC5F5" />
+          </Pressable>
+        </View>
       </View>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>

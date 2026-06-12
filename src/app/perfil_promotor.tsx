@@ -24,8 +24,18 @@ export default function PerfilPromotor() {
       where("promotorId", "==", usuarioAtual.uid),
     );
     const unsubscribeFotos = onSnapshot(consultaFotos, (snapshot) => {
+      const idsSubstituidos = new Set(
+        snapshot.docs
+          .filter((item) => item.data().naLixeira !== true)
+          .map((item) => item.data().refacaoDeId)
+          .filter(Boolean),
+      );
+
       setTotalFotos(
-        snapshot.docs.filter((item) => item.data().naLixeira !== true).length,
+        snapshot.docs.filter(
+          (item) =>
+            item.data().naLixeira !== true && !idsSubstituidos.has(item.id),
+        ).length,
       );
     });
 

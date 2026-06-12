@@ -117,8 +117,20 @@ export default function Admin() {
       collection(db, "fotos"),
       (snapshot) => {
         const hoje = new Date();
+        const idsSubstituidos = new Set(
+          snapshot.docs
+            .filter((item) => item.data().naLixeira !== true)
+            .map((item) => item.data().refacaoDeId)
+            .filter(Boolean),
+        );
         const fotosDoDia = snapshot.docs.filter((item) => {
-          const data = obterData(item.data().criadoEm);
+          const dados = item.data();
+          const data = obterData(dados.criadoEm);
+
+          if (dados.naLixeira === true || idsSubstituidos.has(item.id)) {
+            return false;
+          }
+
           return data ? mesmaData(data, hoje) : false;
         });
 

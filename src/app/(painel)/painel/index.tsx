@@ -22,6 +22,7 @@ type Foto = {
   categoria?: string;
   criadoEm?: any;
   naLixeira?: boolean;
+  refacaoDeId?: string;
 };
 
 type IndicadorProps = {
@@ -107,7 +108,19 @@ export default function PainelDashboard() {
         const dataB = obterData(b.criadoEm)?.getTime() || 0;
         return dataB - dataA;
       });
-      setFotos(lista.filter((foto) => foto.naLixeira !== true));
+      const idsSubstituidos = new Set(
+        lista
+          .filter((foto) => foto.naLixeira !== true)
+          .map((foto) => foto.refacaoDeId)
+          .filter(Boolean),
+      );
+
+      setFotos(
+        lista.filter(
+          (foto) =>
+            foto.naLixeira !== true && !idsSubstituidos.has(foto.id),
+        ),
+      );
     });
 
     const unsubscribeLojas = onSnapshot(collection(db, "lojas"), (snapshot) => {
