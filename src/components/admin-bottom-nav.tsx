@@ -22,7 +22,7 @@ export type AbaAtiva =
   | "admins";
 
 type Props = {
-  abaAtiva: AbaAtiva;
+  abaAtiva: AbaAtiva | null;
   tipoUsuario: "admin" | "super_admin";
 };
 
@@ -181,7 +181,7 @@ function ItemNav({
       });
       elevacaoIcone.value = withTiming(0, { duration: 180 });
     }
-  }, [ativo]);
+  }, [ativo, elevacaoIcone, escalaIcone, escalaIndicador]);
 
   const estiloIndicador = useAnimatedStyle(() => ({
     transform: [{ scaleX: escalaIndicador.value }],

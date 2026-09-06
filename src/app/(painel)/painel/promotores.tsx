@@ -19,7 +19,6 @@ import {
   criarUsuario,
   excluirUsuario,
 } from "@/services/usuarios-service";
-import { useTheme } from "@/theme/theme-context";
 import type { ThemeColors } from "@/theme/colors";
 import type { Loja } from "@/types/loja";
 import type { Promotor } from "@/types/usuario";

@@ -26,6 +26,7 @@ import {
 import { useTheme, type ThemeMode } from "@/theme/theme-context";
 import type { ThemeColors } from "@/theme/colors";
 import { Cabecalho } from "./lojas";
+import ConfiguracoesAdmin from "@/components/configuracoes-admin";
 
 const OPCOES_TEMA: {
   valor: ThemeMode;
@@ -37,7 +38,11 @@ const OPCOES_TEMA: {
   { valor: "system", rotulo: "Sistema", icone: "smartphone" },
 ];
 
-export default function PerfilWeb() {
+export default function ConfiguracoesWeb() {
+  return <ConfiguracoesAdmin painel><PerfilWeb /></ConfiguracoesAdmin>;
+}
+
+function PerfilWeb() {
   const { colors, mode, setMode } = useTheme();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -126,7 +131,8 @@ export default function PerfilWeb() {
 
   const secao = {
     flex: 1,
-    minWidth: 330,
+    minWidth: 0,
+    flexBasis: 330,
     maxWidth: 620,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -139,7 +145,7 @@ export default function PerfilWeb() {
   return (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ gap: 18, paddingBottom: 28 }}
+      contentContainerStyle={{ gap: 18, padding: 20, paddingBottom: 28 }}
     >
       <Cabecalho
         titulo="Meu perfil"

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -14,14 +14,19 @@ import {
 } from "react-native";
 
 import { MaterialIcons } from "@expo/vector-icons";
-import ImageViewer from "react-native-image-zoom-viewer";
 
 import * as FileSystem from "expo-file-system/legacy";
-import * as MediaLibrary from "expo-media-library";
+import * as MediaLibrary from "expo-media-library/legacy";
 import { onSnapshot } from "firebase/firestore";
 
 import AdminBottomNav from "@/components/admin-bottom-nav";
-import { CATEGORIAS_FOTO_COM_TODAS } from "@/constants/categorias-foto";
+import CardVisitaFotos from "@/components/card-visita-fotos";
+import ConfirmarAprovacaoVisita from "@/components/confirmar-aprovacao-visita";
+import HistoricoAvaliacoes from "@/components/historico-avaliacoes";
+import { agruparFotosPorVisita, type VisitaFotos } from "@/utils/visitas-fotos";
+import ImageViewer from "@/components/photo-zoom-viewer";
+import { useCategoriasFoto } from "@/hooks/use-categorias-foto";
+import { categoriasParaFiltro } from "@/utils/catalogo-categorias";
 import { STATUS_FOTO_FILTRO_OPCOES } from "@/constants/status-foto";
 import { useTipoUsuario } from "@/contexts/usuario-context";
 import { useEstadoPersistido } from "@/hooks/use-estado-persistido";
@@ -93,6 +98,7 @@ type ChipFiltro = {
 
 export default function VerFotos() {
   const { colors, scheme } = useTheme();
+  const { categorias } = useCategoriasFoto();
   const [fotos, setFotos] = useState<Foto[]>([]);
   const [promotores, setPromotores] = useState<Record<string, PromotorMapa>>({});
   const [modoCompacto, setModoCompacto] = useEstadoPersistido<boolean>(
@@ -134,6 +140,8 @@ export default function VerFotos() {
   const [excluindoFoto, setExcluindoFoto] = useState(false);
   const [salvandoStatus, setSalvandoStatus] = useState(false);
   const [baixandoFoto, setBaixandoFoto] = useState(false);
+  const [visitaAprovando, setVisitaAprovando] = useState<VisitaFotos | null>(null);
+  const fotoDetalhesAtual = fotoDetalhes ? fotos.find((foto) => foto.id === fotoDetalhes.id) || null : null;
 
   /* ---------- Carregamentos ---------- */
 
@@ -177,13 +185,13 @@ export default function VerFotos() {
 
   /* ---------- Helpers ---------- */
 
-  function nomePromotor(foto: Foto) {
+  const nomePromotor = useCallback((foto: Foto) => {
     if (foto.promotorNome) return foto.promotorNome;
     if (foto.promotorId && promotores[foto.promotorId]) {
       return promotores[foto.promotorId].nome;
     }
     return foto.promotorEmail || "Promotor não identificado";
-  }
+  }, [promotores]);
 
   function fotoPromotor(foto: Foto) {
     if (foto.promotorId && promotores[foto.promotorId]?.fotoBase64) {
@@ -201,8 +209,8 @@ export default function VerFotos() {
   }, [fotos]);
 
   const categoriasOpcoes = useMemo(
-    () => CATEGORIAS_FOTO_COM_TODAS.filter((c) => c !== "Todas"),
-    [],
+    () => categoriasParaFiltro(categorias, fotos.map(obterCategoriaFoto)),
+    [categorias, fotos],
   );
 
   const statusOpcoes = useMemo(
@@ -253,7 +261,7 @@ export default function VerFotos() {
     categoriasSelecionadas,
     statusSelecionados,
     apenasHoje,
-    promotores,
+    nomePromotor,
   ]);
 
   /* ---------- Chips ativos ---------- */
@@ -299,7 +307,16 @@ export default function VerFotos() {
     }
 
     return lista;
-  }, [lojasSelecionadas, categoriasSelecionadas, statusSelecionados, apenasHoje]);
+  }, [
+    lojasSelecionadas,
+    categoriasSelecionadas,
+    statusSelecionados,
+    apenasHoje,
+    setLojasSelecionadas,
+    setCategoriasSelecionadas,
+    setStatusSelecionados,
+    setApenasHoje,
+  ]);
 
   const totalFiltros = chipsAtivos.length;
 
@@ -435,19 +452,17 @@ export default function VerFotos() {
     }
   }
 
+  const visitasFiltradas = useMemo(() => agruparFotosPorVisita(fotos, fotosFiltradas), [fotos, fotosFiltradas]);
+
   /* ---------- Estilos compartilhados ---------- */
 
   const corBordaSuave =
     scheme === "light" ? "rgba(15,23,42,0.06)" : "rgba(255,255,255,0.06)";
-  const sombraSuave =
-    scheme === "light"
-      ? "0 2px 10px rgba(15,23,42,0.06)"
-      : "0 2px 10px rgba(0,0,0,0.35)";
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <FlatList
-        data={fotosFiltradas}
+        data={visitasFiltradas}
         keyExtractor={(item) => item.id}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{
@@ -477,7 +492,7 @@ export default function VerFotos() {
                     fontWeight: "bold",
                   }}
                 >
-                  Fotos
+                  Visitas
                 </Text>
                 <Text
                   style={{
@@ -486,7 +501,7 @@ export default function VerFotos() {
                     fontSize: 13,
                   }}
                 >
-                  {fotosFiltradas.length} foto(s) exibida(s)
+                  {visitasFiltradas.length} visita(s) · {fotosFiltradas.length} foto(s) nos filtros
                 </Text>
               </View>
               <Pressable
@@ -701,7 +716,7 @@ export default function VerFotos() {
               color={colors.iconMuted}
             />
             <Text style={{ color: colors.text, fontWeight: "bold" }}>
-              Nenhuma foto encontrada
+              Nenhuma visita encontrada
             </Text>
             <Text style={{ color: colors.textSubtle, textAlign: "center" }}>
               Ajuste os filtros ou busca para ver outros envios.
@@ -709,23 +724,22 @@ export default function VerFotos() {
           </View>
         }
         renderItem={({ item }) => (
-          <CardFoto
-            colors={colors}
-            corBorda={corBordaSuave}
-            sombra={sombraSuave}
-            scheme={scheme}
-            foto={item}
-            nomePromotor={nomePromotor(item)}
-            fotoPromotor={fotoPromotor(item)}
+          <CardVisitaFotos
+            key={item.correspondentes.join(",")}
+            visita={item}
+            nomePromotor={nomePromotor(item.fotos[0])}
             compacto={modoCompacto}
-            onVisualizarImagem={() => setFotoVisualizando(item)}
-            onAbrirDetalhes={() => setFotoDetalhes(item)}
-            onMenu={() => setMenuFoto(item)}
+            bloqueado={salvandoStatus}
+            onVisualizarFoto={setFotoVisualizando}
+            onAbrirFoto={setFotoDetalhes}
+            onMenuFoto={setMenuFoto}
+            onAprovarVisita={setVisitaAprovando}
           />
         )}
       />
 
       <AdminBottomNav abaAtiva="fotos" tipoUsuario={tipoUsuario} />
+      {visitaAprovando ? <ConfirmarAprovacaoVisita visita={visitaAprovando} onFechar={() => setVisitaAprovando(null)} /> : null}
 
       {/* Modal Filtros */}
       <ModalFiltros
@@ -770,9 +784,9 @@ export default function VerFotos() {
         colors={colors}
         corBorda={corBordaSuave}
         scheme={scheme}
-        foto={fotoDetalhes}
-        nomePromotor={fotoDetalhes ? nomePromotor(fotoDetalhes) : ""}
-        fotoPromotor={fotoDetalhes ? fotoPromotor(fotoDetalhes) : undefined}
+        foto={fotoDetalhesAtual}
+        nomePromotor={fotoDetalhesAtual ? nomePromotor(fotoDetalhesAtual) : ""}
+        fotoPromotor={fotoDetalhesAtual ? fotoPromotor(fotoDetalhesAtual) : undefined}
         onFechar={() => setFotoDetalhes(null)}
         onVisualizarImagem={() => {
           const f = fotoDetalhes;
@@ -817,312 +831,6 @@ export default function VerFotos() {
 
 /* ---------- Card de Foto ---------- */
 
-function CardFoto({
-  colors,
-  corBorda,
-  sombra,
-  scheme,
-  foto,
-  nomePromotor,
-  fotoPromotor,
-  compacto,
-  onVisualizarImagem,
-  onAbrirDetalhes,
-  onMenu,
-}: {
-  colors: ThemeColors;
-  corBorda: string;
-  sombra: string;
-  scheme: "light" | "dark";
-  foto: Foto;
-  nomePromotor: string;
-  fotoPromotor?: string;
-  compacto: boolean;
-  onVisualizarImagem: () => void;
-  onAbrirDetalhes: () => void;
-  onMenu: () => void;
-}) {
-  const status = obterStatusFoto(foto.status);
-  const visual = visualStatusPorTema(status, scheme);
-  const categoria = obterCategoriaFoto(foto);
-  const data = obterData(foto.criadoEm);
-  const dataFormatada = data ? data.toLocaleString("pt-BR") : "Sem data";
-  const avatar = corAvatarPromotor(nomePromotor);
-  const iniciais = iniciaisPromotor(nomePromotor);
-  const imagemUri = obterImagemUri(foto);
-
-  return (
-    <Pressable
-      onPress={onAbrirDetalhes}
-      style={({ pressed }) => ({
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: corBorda,
-        borderRadius: 14,
-        padding: 14,
-        gap: 12,
-        boxShadow: sombra,
-        opacity: pressed ? 0.6 : 1,
-      })}
-    >
-      {/* Topo: ícone loja + nome + menu */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-        }}
-      >
-        <View
-          style={{
-            width: 42,
-            height: 42,
-            borderRadius: 12,
-            backgroundColor: COR_LOJA_FUNDO,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <MaterialIcons name="storefront" size={22} color={COR_LOJA} />
-        </View>
-        <Text
-          numberOfLines={1}
-          style={{
-            flex: 1,
-            color: colors.text,
-            fontSize: 17,
-            fontWeight: "bold",
-          }}
-        >
-          {foto.lojaNome || "Loja não informada"}
-        </Text>
-        <Pressable
-          onPress={(e) => {
-            e.stopPropagation();
-            onMenu();
-          }}
-          accessibilityLabel="Mais opções"
-          style={{
-            width: 38,
-            height: 32,
-            borderRadius: 8,
-            backgroundColor: colors.surfaceHighlight,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <MaterialIcons
-            name="more-horiz"
-            size={20}
-            color={colors.iconMuted}
-          />
-        </Pressable>
-      </View>
-
-      {/* Promotor */}
-      <View
-        style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
-      >
-        {fotoPromotor ? (
-          <Image
-            source={{ uri: fotoPromotor }}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              backgroundColor: avatar.fundo,
-            }}
-          />
-        ) : (
-          <View
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              backgroundColor: avatar.fundo,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text
-              style={{
-                color: avatar.texto,
-                fontSize: 11,
-                fontWeight: "bold",
-              }}
-            >
-              {iniciais}
-            </Text>
-          </View>
-        )}
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text
-            numberOfLines={1}
-            style={{ color: colors.text, fontSize: 14, fontWeight: "bold" }}
-          >
-            {nomePromotor}
-          </Text>
-          {foto.promotorEmail ? (
-            <Text
-              numberOfLines={1}
-              style={{
-                color: colors.textSubtle,
-                fontSize: 12,
-                paddingTop: 1,
-              }}
-            >
-              {foto.promotorEmail}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-
-      {/* Data */}
-      <View
-        style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
-      >
-        <MaterialIcons
-          name="schedule"
-          size={16}
-          color={colors.iconMuted}
-        />
-        <Text style={{ color: colors.textMuted, fontSize: 13 }}>
-          {dataFormatada}
-        </Text>
-      </View>
-
-      {/* Badges */}
-      <View
-        style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}
-      >
-        <View
-          style={{
-            backgroundColor: COR_FOTOS_FUNDO,
-            paddingHorizontal: 10,
-            paddingVertical: 5,
-            borderRadius: 999,
-          }}
-        >
-          <Text
-            style={{ color: COR_FOTOS, fontSize: 12, fontWeight: "bold" }}
-          >
-            {categoria}
-          </Text>
-        </View>
-        <View
-          style={{
-            backgroundColor: visual.fundo,
-            paddingHorizontal: 10,
-            paddingVertical: 5,
-            borderRadius: 999,
-          }}
-        >
-          <Text
-            style={{
-              color: visual.texto,
-              fontSize: 12,
-              fontWeight: "bold",
-            }}
-          >
-            {textoStatusFoto(status)}
-          </Text>
-        </View>
-        {foto.refacaoDeId ? (
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 4,
-              backgroundColor: "#FFEDD5",
-              paddingHorizontal: 10,
-              paddingVertical: 5,
-              borderRadius: 999,
-            }}
-          >
-            <MaterialIcons name="history" size={13} color="#9A3412" />
-            <Text
-              style={{
-                color: "#9A3412",
-                fontSize: 12,
-                fontWeight: "bold",
-              }}
-            >
-              Refação {foto.numeroRefacao || 1}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      {/* Imagem */}
-      {compacto ? (
-        imagemUri ? (
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              paddingTop: 4,
-            }}
-          >
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation();
-                onVisualizarImagem();
-              }}
-              accessibilityLabel="Abrir foto"
-            >
-              <Image
-                source={{ uri: imagemUri }}
-                style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: 10,
-                  backgroundColor: colors.surfaceHighlight,
-                }}
-                resizeMode="cover"
-              />
-            </Pressable>
-            <Text
-              numberOfLines={3}
-              style={{
-                flex: 1,
-                color: foto.observacao ? colors.text : colors.textSubtle,
-                fontSize: 13,
-                fontStyle: foto.observacao ? "normal" : "italic",
-                lineHeight: 18,
-              }}
-            >
-              {foto.observacao || "Sem observação"}
-            </Text>
-          </View>
-        ) : null
-      ) : (
-        <>
-          {imagemUri ? (
-            <Pressable
-              onPress={(e) => {
-                e.stopPropagation();
-                onVisualizarImagem();
-              }}
-              accessibilityLabel="Abrir foto"
-            >
-              <Image
-                source={{ uri: imagemUri }}
-                style={{
-                  width: "100%",
-                  height: 240,
-                  borderRadius: 10,
-                  backgroundColor: colors.surfaceHighlight,
-                }}
-                resizeMode="cover"
-              />
-            </Pressable>
-          ) : null}
-        </>
-      )}
-    </Pressable>
-  );
-}
 
 /* ---------- Modal Filtros ---------- */
 
@@ -1166,12 +874,16 @@ function ModalFiltros({
   const [hojeLocal, setHojeLocal] = useState(apenasHoje);
 
   useEffect(() => {
-    if (visivel) {
+    if (!visivel) return;
+
+    const timeoutId = setTimeout(() => {
       setLojasLocais(lojasSelecionadas);
       setCatLocais(categoriasSelecionadas);
       setStatLocais(statusSelecionados);
       setHojeLocal(apenasHoje);
-    }
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [
     visivel,
     lojasSelecionadas,
@@ -1876,6 +1588,8 @@ function ModalDetalhesEnvio({
               </View>
             ) : null}
           </View>
+
+          <HistoricoAvaliacoes key={foto.id} foto={foto} />
 
           {/* Foto */}
           {imagemUri ? (

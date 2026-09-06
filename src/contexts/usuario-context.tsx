@@ -47,6 +47,8 @@ export function UsuarioProvider({ children }: { children: ReactNode }) {
       if (!atual) {
         setPerfil(null);
         setCarregando(false);
+      } else {
+        setCarregando(true);
       }
     });
   }, []);
@@ -54,7 +56,6 @@ export function UsuarioProvider({ children }: { children: ReactNode }) {
   // Acompanha o documento do usuário em tempo real (snapshot).
   useEffect(() => {
     if (!user) return;
-    setCarregando(true);
 
     const unsubscribe = onSnapshot(
       usuarioDoc(user.uid),

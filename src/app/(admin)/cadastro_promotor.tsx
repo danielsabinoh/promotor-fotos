@@ -598,7 +598,13 @@ function BottomSheetLojas({
 
   // Sincroniza quando o sheet reabre
   useEffect(() => {
-    if (visivel) setSelecionadas(selecionadasIniciais);
+    if (!visivel) return;
+
+    const timeoutId = setTimeout(() => {
+      setSelecionadas(selecionadasIniciais);
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [visivel, selecionadasIniciais]);
 
   function alternar(id: string) {

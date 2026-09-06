@@ -6,7 +6,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Appearance, useColorScheme as useSystemColorScheme } from "react-native";
+import {
+  Appearance,
+  useColorScheme as useSystemColorScheme,
+  type ColorSchemeName,
+} from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -26,7 +30,7 @@ const CHAVE_ARMAZENAMENTO = "@promotor-fotos:tema";
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function resolverScheme(mode: ThemeMode, sistema: ColorScheme | null): ColorScheme {
+function resolverScheme(mode: ThemeMode, sistema: ColorSchemeName): ColorScheme {
   if (mode === "system") {
     return sistema === "light" ? "light" : "dark";
   }

@@ -43,8 +43,6 @@ type PromotorGerenciado = Promotor & {
 };
 
 const COR_PRIMARIA = "#7C3AED";
-const COR_PROMOTORES_NAV = "#7C3AED";
-
 // Paleta de cores pros avatares — escolhida pelo hash do nome (determinístico).
 const CORES_AVATAR: { fundo: string; texto: string }[] = [
   { fundo: "#DBEAFE", texto: "#1E40AF" }, // azul
@@ -103,7 +101,11 @@ export default function GerenciarPromotores() {
     if (!detalhesAberto) return;
     const atualizado = promotores.find((p) => p.id === detalhesAberto.id);
     if (atualizado && atualizado !== detalhesAberto) {
-      setDetalhesAberto(atualizado);
+      const timeoutId = setTimeout(() => {
+        setDetalhesAberto(atualizado);
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
   }, [promotores, detalhesAberto]);
 

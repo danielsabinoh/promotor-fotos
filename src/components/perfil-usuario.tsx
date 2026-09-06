@@ -32,6 +32,7 @@ type PerfilUsuarioProps = {
   tipoEsperado: "promotor" | "admin";
   totalFotos?: number;
   totalLojas?: number;
+  embutido?: boolean;
 };
 
 const OPCOES_TEMA: { valor: ThemeMode; rotulo: string; icone: keyof typeof MaterialIcons.glyphMap }[] = [
@@ -63,6 +64,7 @@ export default function PerfilUsuario({
   tipoEsperado,
   totalFotos,
   totalLojas,
+  embutido = false,
 }: PerfilUsuarioProps) {
   const { colors, mode, setMode } = useTheme();
   const estilos = criarEstilos(colors);
@@ -234,12 +236,12 @@ export default function PerfilUsuario({
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={{
         padding: 20,
-        paddingTop: 60,
+        paddingTop: embutido ? 20 : 60,
         paddingBottom: 30,
         gap: 14,
       }}
     >
-      <View
+      {!embutido ? <View
         style={{
           flexDirection: "row",
           alignItems: "center",
@@ -271,6 +273,8 @@ export default function PerfilUsuario({
           </Text>
         </View>
       </View>
+
+      : null}
 
       {tipoEsperado === "promotor" ? (
         <View style={{ flexDirection: "row", gap: 10 }}>

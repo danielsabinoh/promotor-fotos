@@ -12,9 +12,15 @@ import {
 } from "react-native";
 
 import { MaterialIcons } from "@expo/vector-icons";
+import CardVisitaFotos from "@/components/card-visita-fotos";
+import ConfirmarAprovacaoVisita from "@/components/confirmar-aprovacao-visita";
+import HistoricoAvaliacoes from "@/components/historico-avaliacoes";
+import { agruparFotosPorVisita, type VisitaFotos } from "@/utils/visitas-fotos";
 import { onSnapshot } from "firebase/firestore";
 
 import { STATUS_FOTO_FILTRO_OPCOES } from "@/constants/status-foto";
+import { useCategoriasFoto } from "@/hooks/use-categorias-foto";
+import { categoriasParaFiltro } from "@/utils/catalogo-categorias";
 import {
   consultaFotosOrdenadasPorData,
   excluirFoto as excluirFotoPorId,
@@ -29,7 +35,6 @@ import {
   obterImagemUri as imagemDaFoto,
   obterRotuloVisita,
 } from "@/utils/fotos";
-import { visualStatusPorTema } from "@/utils/status-foto";
 
 type AcaoAvaliacao = "refazer" | "rejeitada" | null;
 
@@ -40,9 +45,12 @@ function nomePromotor(foto: Foto) {
 }
 
 export default function FotosWeb() {
-  const { colors, scheme } = useTheme();
+  const { colors } = useTheme();
+  const { categorias } = useCategoriasFoto();
   const [fotos, setFotos] = useState<Foto[]>([]);
-  const [fotoAberta, setFotoAberta] = useState<Foto | null>(null);
+  const [fotoSelecionada, setFotoAberta] = useState<Foto | null>(null);
+  const fotoAberta = fotoSelecionada ? fotos.find((foto) => foto.id === fotoSelecionada.id) || null : null;
+  const [visitaAprovando, setVisitaAprovando] = useState<VisitaFotos | null>(null);
   const [loja, setLoja] = useState("Todas");
   const [promotor, setPromotor] = useState("Todos");
   const [categoria, setCategoria] = useState("Todas");
@@ -82,10 +90,10 @@ export default function FotosWeb() {
       promotores: ["Todos", ...new Set(fotos.map(nomePromotor))],
       categorias: [
         "Todas",
-        ...new Set(fotos.map((foto) => foto.categoria || "Sem categoria")),
+        ...categoriasParaFiltro(categorias, fotos.map((foto) => foto.categoria || "Sem categoria")),
       ],
     }),
-    [fotos],
+    [categorias, fotos],
   );
 
   const fotosFiltradas = useMemo(
@@ -101,7 +109,8 @@ export default function FotosWeb() {
     [categoria, fotos, loja, promotor, status],
   );
 
-  const colunas = width >= 1450 ? 4 : width >= 1080 ? 3 : width >= 760 ? 2 : 1;
+  const visitasFiltradas = useMemo(() => agruparFotosPorVisita(fotos, fotosFiltradas), [fotos, fotosFiltradas]);
+  const colunas = width >= 1200 ? 2 : 1;
   const larguraCard = `${100 / colunas}%` as `${number}%`;
 
   async function atualizarStatus(novoStatus: string) {
@@ -114,11 +123,6 @@ export default function FotosWeb() {
         foto: fotoAberta,
         status: novoStatus,
         comentario: novoStatus === "aprovada" ? "" : comentarioLimpo,
-      });
-      setFotoAberta({
-        ...fotoAberta,
-        status: novoStatus,
-        comentarioAdmin: novoStatus === "aprovada" ? "" : comentarioLimpo,
       });
       setMensagemSucesso(
         novoStatus === "aprovada"
@@ -227,10 +231,10 @@ export default function FotosWeb() {
           <Text
             style={{ color: colors.text, fontSize: 27, fontWeight: "bold" }}
           >
-            Fotos recebidas
+            Visitas recebidas
           </Text>
           <Text style={{ color: colors.textSubtle, paddingTop: 5 }}>
-            {fotosFiltradas.length} de {fotos.length} fotos exibidas
+            {visitasFiltradas.length} visita(s) · {fotosFiltradas.length} de {fotos.length} fotos nos filtros
           </Text>
         </View>
       </View>
@@ -278,160 +282,18 @@ export default function FotosWeb() {
       </View>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", margin: -7 }}>
-        {fotosFiltradas.map((foto) => {
-          const estado = foto.status || "pendente";
-          const visual = visualStatusPorTema(estado, scheme);
-          const data = obterData(foto.criadoEm);
-
-          return (
-            <View key={foto.id} style={{ width: larguraCard, padding: 7 }}>
-              <Pressable
-                onPress={() => abrirFoto(foto)}
-                style={{
-                  backgroundColor: colors.surface,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 8,
-                  overflow: "hidden",
-                }}
-              >
-                <Image
-                  source={{ uri: imagemDaFoto(foto) }}
-                  resizeMode="cover"
-                  style={{
-                    width: "100%",
-                    aspectRatio: 4 / 3,
-                    backgroundColor: colors.surfaceHighlight,
-                  }}
-                />
-                <View style={{ padding: 14, gap: 8 }}>
-                  {foto.refacaoDeId ? (
-                    <View
-                      style={{
-                        alignSelf: "flex-start",
-                        backgroundColor: colors.warningSurface,
-                        borderRadius: 5,
-                        paddingVertical: 5,
-                        paddingHorizontal: 8,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 5,
-                      }}
-                    >
-                      <MaterialIcons
-                        name="history"
-                        size={15}
-                        color={colors.warning}
-                      />
-                      <Text
-                        style={{
-                          color: colors.warningText,
-                          fontSize: 11,
-                          fontWeight: "bold",
-                        }}
-                      >
-                        Refação {foto.numeroRefacao || 1}
-                      </Text>
-                    </View>
-                  ) : null}
-                  {obterRotuloVisita(foto) ? (
-                    <View
-                      style={{
-                        alignSelf: "flex-start",
-                        backgroundColor: colors.primarySurface,
-                        borderRadius: 5,
-                        paddingVertical: 5,
-                        paddingHorizontal: 8,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        gap: 5,
-                      }}
-                    >
-                      <MaterialIcons
-                        name="collections"
-                        size={15}
-                        color={colors.primary}
-                      />
-                      <Text
-                        style={{
-                          color: colors.primary,
-                          fontSize: 11,
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {obterRotuloVisita(foto)}
-                      </Text>
-                    </View>
-                  ) : null}
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
-                      gap: 10,
-                    }}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text
-                        numberOfLines={1}
-                        style={{
-                          color: colors.text,
-                          fontWeight: "bold",
-                          fontSize: 15,
-                        }}
-                      >
-                        {foto.lojaNome || "Loja nao informada"}
-                      </Text>
-                      <Text
-                        numberOfLines={1}
-                        style={{
-                          color: colors.textSubtle,
-                          fontSize: 13,
-                          paddingTop: 4,
-                        }}
-                      >
-                        {nomePromotor(foto)}
-                      </Text>
-                    </View>
-                    <View
-                      style={{
-                        backgroundColor: visual.fundo,
-                        borderRadius: 5,
-                        paddingVertical: 5,
-                        paddingHorizontal: 8,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: visual.texto,
-                          fontSize: 11,
-                          fontWeight: "bold",
-                          textTransform: "capitalize",
-                        }}
-                      >
-                        {estado}
-                      </Text>
-                    </View>
-                  </View>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      gap: 10,
-                    }}
-                  >
-                    <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-                      {foto.categoria || "Sem categoria"}
-                    </Text>
-                    <Text style={{ color: colors.textSubtle, fontSize: 12 }}>
-                      {data ? data.toLocaleDateString("pt-BR") : "Sem data"}
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
-            </View>
-          );
-        })}
+        {visitasFiltradas.map((visita) => (
+          <View key={visita.id} style={{ width: larguraCard, padding: 7 }}>
+            <CardVisitaFotos
+              key={visita.correspondentes.join(",")}
+              visita={visita}
+              nomePromotor={nomePromotor(visita.fotos[0])}
+              bloqueado={salvando}
+              onAbrirFoto={abrirFoto}
+              onAprovarVisita={setVisitaAprovando}
+            />
+          </View>
+        ))}
       </View>
 
       {fotosFiltradas.length === 0 ? (
@@ -452,13 +314,15 @@ export default function FotosWeb() {
             color={colors.iconMuted}
           />
           <Text style={{ color: colors.text, fontWeight: "bold" }}>
-            Nenhuma foto encontrada
+            Nenhuma visita encontrada
           </Text>
           <Text style={{ color: colors.textSubtle }}>
             Altere os filtros para consultar outros envios.
           </Text>
         </View>
       ) : null}
+
+      {visitaAprovando ? <ConfirmarAprovacaoVisita visita={visitaAprovando} onFechar={() => setVisitaAprovando(null)} /> : null}
 
       <Modal
         visible={!!fotoAberta}
@@ -581,6 +445,8 @@ export default function FotosWeb() {
                     />
                   ) : null}
                 </View>
+
+                <HistoricoAvaliacoes key={fotoAberta.id} foto={fotoAberta} />
 
                 <View style={{ height: 1, backgroundColor: colors.border }} />
 

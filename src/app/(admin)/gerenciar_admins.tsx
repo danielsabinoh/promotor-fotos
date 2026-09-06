@@ -130,7 +130,11 @@ export default function GerenciarAdmins() {
     if (!detalhesAberto) return;
     const atualizado = admins.find((a) => a.id === detalhesAberto.id);
     if (atualizado && atualizado !== detalhesAberto) {
-      setDetalhesAberto(atualizado);
+      const timeoutId = setTimeout(() => {
+        setDetalhesAberto(atualizado);
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
   }, [admins, detalhesAberto]);
 
