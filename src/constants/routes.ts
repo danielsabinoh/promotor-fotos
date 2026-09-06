@@ -7,6 +7,8 @@ export const ROTAS = {
   promotor: "/promotor",
   painel: "/painel",
   painelPerfil: "/painel/perfil",
+  painelConfiguracoes: "/painel/configuracoes",
+  configuracoesAdmin: "/configuracoes",
   painelFotos: "/painel/fotos",
   painelLojas: "/painel/lojas",
   painelProdutos: "/painel/produtos",

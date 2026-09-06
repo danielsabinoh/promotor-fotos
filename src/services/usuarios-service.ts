@@ -13,6 +13,7 @@ import {
 import type { Usuario } from "@/types/usuario";
 
 import { db } from "./firebaseConfig";
+import { EQUIPE_PADRAO } from "@/constants/acesso";
 
 export function usuariosCollection() {
   return collection(db, "usuarios");
@@ -43,8 +44,12 @@ export function criarUsuario(usuarioId: string, dados: Record<string, any>) {
   return setDoc(usuarioDoc(usuarioId), dados);
 }
 
-export function consultaPromotores() {
-  return query(usuariosCollection(), where("tipo", "==", "promotor"));
+export function consultaPromotores(equipeId = EQUIPE_PADRAO) {
+  return query(
+    usuariosCollection(),
+    where("tipo", "==", "promotor"),
+    where("equipeId", "==", equipeId),
+  );
 }
 
 export function consultaAdministradores() {

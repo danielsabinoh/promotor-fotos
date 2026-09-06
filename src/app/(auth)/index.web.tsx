@@ -18,6 +18,7 @@ import {
 
 import { ROTAS } from "@/constants/routes";
 import { auth } from "@/services/firebaseConfig";
+import { aceitarConvitePendente } from "@/services/gestao-acessos";
 import { buscarUsuario } from "@/services/usuarios-service";
 import { useTheme } from "@/theme/theme-context";
 
@@ -53,6 +54,7 @@ export default function LoginWeb() {
         email.trim(),
         senha,
       );
+      await aceitarConvitePendente();
       const perfilSnap = await buscarUsuario(credencial.user.uid);
 
       if (!perfilSnap.exists() || perfilSnap.data().ativo === false) {
@@ -75,10 +77,13 @@ export default function LoginWeb() {
       }
     } catch (error: any) {
       console.log(error);
+      await signOut(auth).catch(() => undefined);
       setMensagem(
-        error?.code === "auth/invalid-credential"
+        error?.code === "auth/user-disabled"
+          ? "Este acesso esta desativado."
+          : error?.code === "auth/invalid-credential"
           ? "Email ou senha incorretos."
-          : "Nao foi possivel entrar. Tente novamente.",
+          : error?.message || "Nao foi possivel entrar. Tente novamente.",
       );
     } finally {
       setCarregando(false);

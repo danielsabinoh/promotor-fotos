@@ -15,11 +15,11 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { onSnapshot, serverTimestamp } from "firebase/firestore";
+import { onSnapshot } from "firebase/firestore";
 
-import { criarUsuarioAuth } from "@/services/criarUsuarioAuth";
 import { lojasCollection } from "@/services/lojas-service";
-import { criarUsuario } from "@/services/usuarios-service";
+import { convidarPromotor } from "@/services/gestao-acessos";
+import { emailParecePessoal } from "@/constants/acesso";
 import { useTheme } from "@/theme/theme-context";
 import type { ThemeColors } from "@/theme/colors";
 import type { Loja } from "@/types/loja";
@@ -32,10 +32,6 @@ export default function CadastroPromotor() {
   const { colors, scheme } = useTheme();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
-  const [confirmarSenha, setConfirmarSenha] = useState("");
-  const [mostrarSenha, setMostrarSenha] = useState(false);
-  const [mostrarConfirmar, setMostrarConfirmar] = useState(false);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [lojasSelecionadas, setLojasSelecionadas] = useState<string[]>([]);
   const [sheetAberto, setSheetAberto] = useState(false);
@@ -127,15 +123,6 @@ export default function CadastroPromotor() {
       Alert.alert("Atenção", "Selecione pelo menos uma loja.");
       return;
     }
-    if (senha.length < 6) {
-      Alert.alert("Atenção", "A senha deve ter pelo menos 6 caracteres.");
-      return;
-    }
-    if (senha !== confirmarSenha) {
-      Alert.alert("Atenção", "As senhas não coincidem.");
-      return;
-    }
-
     try {
       setSalvando(true);
 
@@ -153,18 +140,13 @@ export default function CadastroPromotor() {
         }
       }
 
-      const uid = await criarUsuarioAuth(email, senha);
-      await criarUsuario(uid, {
+      await convidarPromotor({
         nome: nome.trim(),
         email: email.trim().toLowerCase(),
-        tipo: "promotor",
         lojasIds: lojasSelecionadas,
-        ativo: true,
-        primeiroAcesso: true,
-        criadoEm: serverTimestamp(),
         ...(fotoBase64 ? { fotoBase64 } : {}),
       });
-      Alert.alert("Sucesso", "Promotor cadastrado com sucesso!");
+      Alert.alert("Convite enviado", "O promotor recebera um email para criar a propria senha.");
       router.back();
     } catch (error: any) {
       console.log(error);
@@ -221,7 +203,7 @@ export default function CadastroPromotor() {
             Cadastro de Promotor
           </Text>
           <Text style={{ color: colors.textSubtle, lineHeight: 21 }}>
-            Preencha os dados do promotor para realizar o cadastro.
+            Informe os dados do promotor. Ele recebera um convite para criar a propria senha.
           </Text>
         </View>
 
@@ -249,6 +231,11 @@ export default function CadastroPromotor() {
           autoCapitalize="none"
           keyboardType="email-address"
         />
+        {emailParecePessoal(email) ? (
+          <Text style={{ color: colors.warning, fontSize: 12, marginTop: -8 }}>
+            Email pessoal permitido. Prefira o corporativo quando estiver disponivel.
+          </Text>
+        ) : null}
 
         {/* Seletor de lojas */}
         <CampoLojas
@@ -259,34 +246,6 @@ export default function CadastroPromotor() {
             .filter(Boolean)}
           onAbrir={() => setSheetAberto(true)}
           onRemover={removerLoja}
-        />
-
-        {/* Senha */}
-        <CampoEntrada
-          colors={colors}
-          corBorda={corBorda}
-          icone="lock-outline"
-          placeholder="Senha"
-          valor={senha}
-          onChange={setSenha}
-          secureTextEntry={!mostrarSenha}
-          autoCapitalize="none"
-          iconeDireita={mostrarSenha ? "visibility-off" : "visibility"}
-          onIconeDireita={() => setMostrarSenha((v) => !v)}
-        />
-
-        {/* Confirmar senha */}
-        <CampoEntrada
-          colors={colors}
-          corBorda={corBorda}
-          icone="lock-outline"
-          placeholder="Confirmar senha"
-          valor={confirmarSenha}
-          onChange={setConfirmarSenha}
-          secureTextEntry={!mostrarConfirmar}
-          autoCapitalize="none"
-          iconeDireita={mostrarConfirmar ? "visibility-off" : "visibility"}
-          onIconeDireita={() => setMostrarConfirmar((v) => !v)}
         />
 
         {/* Botão Salvar */}
@@ -303,7 +262,7 @@ export default function CadastroPromotor() {
           }}
         >
           <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>
-            {salvando ? "Salvando..." : "Salvar Promotor"}
+            {salvando ? "Enviando..." : "Enviar convite"}
           </Text>
         </Pressable>
       </ScrollView>
@@ -598,7 +557,13 @@ function BottomSheetLojas({
 
   // Sincroniza quando o sheet reabre
   useEffect(() => {
-    if (visivel) setSelecionadas(selecionadasIniciais);
+    if (!visivel) return;
+
+    const timeoutId = setTimeout(() => {
+      setSelecionadas(selecionadasIniciais);
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [visivel, selecionadasIniciais]);
 
   function alternar(id: string) {

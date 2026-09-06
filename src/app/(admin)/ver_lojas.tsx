@@ -127,7 +127,11 @@ export default function VerLojas() {
     if (!detalhesAberta) return;
     const atualizada = lojas.find((l) => l.id === detalhesAberta.id);
     if (atualizada && atualizada !== detalhesAberta) {
-      setDetalhesAberta(atualizada);
+      const timeoutId = setTimeout(() => {
+        setDetalhesAberta(atualizada);
+      }, 0);
+
+      return () => clearTimeout(timeoutId);
     }
   }, [lojas, detalhesAberta]);
 

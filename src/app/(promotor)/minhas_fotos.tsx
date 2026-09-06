@@ -13,8 +13,8 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { onSnapshot } from "firebase/firestore";
-import ImageViewer from "react-native-image-zoom-viewer";
 
+import ImageViewer from "@/components/photo-zoom-viewer";
 import { ROTAS } from "@/constants/routes";
 import { STATUS_FOTO_FILTRO_OPCOES } from "@/constants/status-foto";
 import { auth } from "@/services/firebaseConfig";
@@ -174,7 +174,11 @@ export default function MinhasFotos() {
     if (!foto) return;
 
     fotoInicialProcessada.current = true;
-    setFotoSelecionada(foto);
+    const timeoutId = setTimeout(() => {
+      setFotoSelecionada(foto);
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [fotosAtivas, parametros.fotoInicialId]);
 
   function formatarData(valor: any) {

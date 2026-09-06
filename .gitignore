@@ -7,6 +7,7 @@ node_modules/
 .expo/
 .expo-*/
 dist/
+/dist-*/
 web-build/
 build/
 coverage/
@@ -56,6 +57,7 @@ pnpm-debug.*
 .env*.local
 .env.development
 .env.production
+/functions/.env.*
 
 # typescript
 *.tsbuildinfo
@@ -65,9 +67,6 @@ example
 # generated native folders
 /ios
 /android
-
-# Backend local descartado (Cloud Functions exige plano Blaze)
-/functions/
 
 # IDE user/cache files
 .idea/caches/

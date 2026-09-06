@@ -21,7 +21,6 @@ import {
 } from "firebase/firestore";
 
 import {
-  CATEGORIAS_FOTO,
   nomeCategoriaFoto,
 } from "@/constants/categorias-foto";
 import {
@@ -32,6 +31,9 @@ import {
 } from "@/constants/estoque";
 import { ROTAS } from "@/constants/routes";
 import { auth } from "@/services/firebaseConfig";
+import { useCategoriasFoto } from "@/hooks/use-categorias-foto";
+import { buscarCatalogoCategorias } from "@/services/categorias-service";
+import { categoriaEstaAtiva } from "@/utils/catalogo-categorias";
 import { criarFoto } from "@/services/fotos-service";
 import { criarOcorrenciaEstoque } from "@/services/ocorrencias-estoque-service";
 import { consultaProdutosAtivos } from "@/services/produtos-service";
@@ -72,6 +74,7 @@ type FotoVisitaRascunho = {
 
 export default function EnviarFoto() {
   const { colors } = useTheme();
+  const { categorias, categoriasAtivas, carregando: carregandoCategorias, erro: erroCategorias, recarregar: recarregarCategorias } = useCategoriasFoto();
   const parametros = useLocalSearchParams<{
     lojaId?: string | string[];
     lojaNome?: string | string[];
@@ -108,10 +111,11 @@ export default function EnviarFoto() {
   const exigeOcorrencia = categoriaExigeOcorrenciaEstoque(categoria);
   const fotoAtualValida =
     !!imagem &&
-    !!categoria &&
+    categoriaEstaAtiva(categoria, categorias) &&
     (!exigeOcorrencia || itensOcorrencia.length > 0);
   const formularioValido =
-    (fotoAtualValida || fotosVisita.length > 0) && !enviando;
+    (fotoAtualValida || fotosVisita.length > 0) && !enviando && !carregandoCategorias && !erroCategorias &&
+    fotosVisita.every((foto) => categoriaEstaAtiva(foto.categoria, categorias));
   const categoriaExibicao = nomeCategoriaFoto(categoria);
 
   const produtosFiltrados = useMemo(() => {
@@ -156,15 +160,16 @@ export default function EnviarFoto() {
     });
   }, []);
 
-  useEffect(() => {
-    setBuscaProduto("");
-    setItensOcorrencia([]);
-  }, [tipoOcorrencia]);
-
   function removerImagem() {
     if (enviando) return;
     setImagem(null);
     setCategoria(null);
+    setItensOcorrencia([]);
+  }
+
+  function selecionarCategoria(novaCategoria: string) {
+    setCategoria(novaCategoria);
+    setBuscaProduto("");
     setItensOcorrencia([]);
   }
 
@@ -380,6 +385,11 @@ export default function EnviarFoto() {
       }
 
       setEtapaEnvio("preparando");
+      const catalogoAtual = await buscarCatalogoCategorias();
+      if (fotosParaEnviar.some((foto) => !categoriaEstaAtiva(foto.categoria, catalogoAtual))) {
+        Alert.alert("Categoria desativada", "Uma categoria deste envio foi desativada. Selecione outra categoria ou remova a foto da visita.");
+        return;
+      }
       const usuarioSnap = await buscarUsuario(usuarioAtual.uid);
 
       if (!usuarioSnap.exists() || usuarioSnap.data().ativo === false) {
@@ -723,14 +733,30 @@ export default function EnviarFoto() {
           <View style={{ gap: 12 }}>
             <TituloSecao colors={colors} numero="2" titulo="Categoria e observação" />
 
+            {carregandoCategorias ? <ActivityIndicator color={colors.primary} /> : null}
+            {erroCategorias ? (
+              <View style={{ gap: 8 }}>
+                <Text accessibilityRole="alert" style={{ color: colors.danger }}>{erroCategorias}</Text>
+                <Pressable onPress={recarregarCategorias} accessibilityRole="button" style={{ minHeight: 44, justifyContent: "center" }}>
+                  <Text style={{ color: colors.primary }}>Tentar novamente</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {!carregandoCategorias && !erroCategorias && !categoriasAtivas.length ? (
+              <Text style={{ color: colors.warning }}>Nenhuma categoria ativa. Entre em contato com o administrador.</Text>
+            ) : null}
+            {!carregandoCategorias && !erroCategorias && ((categoria && !categoriaEstaAtiva(categoria, categorias)) || fotosVisita.some((foto) => !categoriaEstaAtiva(foto.categoria, categorias))) ? (
+              <Text accessibilityRole="alert" style={{ color: colors.warning }}>Uma categoria selecionada foi desativada. Escolha outra categoria ou remova a foto da visita.</Text>
+            ) : null}
+
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 9 }}>
-              {CATEGORIAS_FOTO.map((item) => {
+              {categoriasAtivas.map((item) => {
                 const selecionada = categoria === item.valor;
 
                 return (
                   <Pressable
                     key={item.valor}
-                    onPress={() => setCategoria(item.valor)}
+                    onPress={() => selecionarCategoria(item.valor)}
                     disabled={enviando}
                     style={{
                       width: "47%",

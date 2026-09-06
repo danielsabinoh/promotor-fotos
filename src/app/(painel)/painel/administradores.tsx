@@ -17,7 +17,6 @@ import {
   consultaAdministradores,
   criarUsuario,
 } from "@/services/usuarios-service";
-import { useTheme } from "@/theme/theme-context";
 import type { Administrador } from "@/types/usuario";
 import {
   Cabecalho,

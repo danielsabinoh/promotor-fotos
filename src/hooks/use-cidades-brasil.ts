@@ -57,7 +57,7 @@ export function useCidadesBrasil() {
   useEffect(() => {
     if (cacheCidades) return;
     let ativo = true;
-    setCarregando(true);
+
     carregarCidades()
       .then((lista) => {
         if (!ativo) return;

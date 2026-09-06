@@ -1,15 +1,28 @@
 import {
   doc,
+  collection,
+  orderBy,
+  query,
+  runTransaction,
   serverTimestamp,
-  writeBatch,
 } from "firebase/firestore";
 
-import { db } from "./firebaseConfig";
+import { auth, db } from "./firebaseConfig";
 import { fotoDoc } from "./fotos-service";
+import { usuarioDoc } from "./usuarios-service";
 import { notificacoesCollection } from "./notificacoes-service";
 import type { Foto } from "../types/foto";
+import type { StatusAvaliacao } from "../types/avaliacao-foto";
 
 type FotoNotificavel = Pick<Foto, "id" | "lojaNome" | "promotorId">;
+
+export function avaliacoesFotoCollection(fotoId: string) {
+  return collection(fotoDoc(fotoId), "avaliacoes");
+}
+
+export function consultaAvaliacoesFoto(fotoId: string) {
+  return query(avaliacoesFotoCollection(fotoId), orderBy("criadoEm", "desc"));
+}
 
 function dadosNotificacao(status: string, lojaNome: string, comentario: string) {
   if (status === "aprovada") {
@@ -47,34 +60,84 @@ export async function atualizarFotoComNotificacao({
   status: string;
   comentario: string;
 }) {
-  const batch = writeBatch(db);
-  const comentarioLimpo = comentario.trim();
-
-  batch.update(fotoDoc(foto.id), {
-    status,
-    comentarioAdmin: status === "aprovada" ? "" : comentarioLimpo,
-    avaliadaEm: serverTimestamp(),
-  });
-
-  if (foto.promotorId) {
-    const notificacao = dadosNotificacao(
-      status,
-      foto.lojaNome || "Loja não informada",
-      comentarioLimpo,
-    );
-    const notificacaoRef = doc(notificacoesCollection());
-
-    batch.set(notificacaoRef, {
-      ...notificacao,
-      destinatarioId: foto.promotorId,
-      fotoId: foto.id,
-      lojaNome: foto.lojaNome || "",
-      status,
-      comentarioAdmin: status === "aprovada" ? "" : comentarioLimpo,
-      lida: false,
-      criadoEm: serverTimestamp(),
-    });
+  const usuario = auth.currentUser;
+  if (!usuario) throw new Error("Entre novamente para avaliar as fotos.");
+  if (!["aprovada", "refazer", "rejeitada"].includes(status)) {
+    throw new Error("Status de avaliacao invalido.");
   }
+  const comentarioLimpo = comentario.trim();
+  const comentarioFinal = status === "aprovada" ? "" : comentarioLimpo;
+  const referencia = fotoDoc(foto.id);
+  const avaliacaoRef = doc(avaliacoesFotoCollection(foto.id));
+  const notificacaoRef = doc(notificacoesCollection());
 
-  await batch.commit();
+  await runTransaction(db, async (transaction) => {
+    const perfil = await transaction.get(usuarioDoc(usuario.uid));
+    const atual = await transaction.get(referencia);
+    const admin = perfil.data();
+    if (!admin || admin.ativo === false || !["admin", "super_admin"].includes(admin.tipo)) {
+      throw new Error("Apenas administradores ativos podem avaliar fotos.");
+    }
+    if (!atual.exists() || atual.data().naLixeira === true) {
+      throw new Error("Esta foto foi removida. Atualize a lista de visitas.");
+    }
+    const dados = atual.data() as Foto;
+    if (dados.status === status && (dados.comentarioAdmin || "") === comentarioFinal) return;
+    const adminNome = typeof admin.nome === "string" ? admin.nome : "Administrador";
+    const horario = serverTimestamp();
+    transaction.update(referencia, {
+      status,
+      comentarioAdmin: comentarioFinal,
+      avaliadaEm: horario,
+      avaliadaPorId: usuario.uid,
+      avaliadaPorNome: adminNome,
+      ultimaAvaliacaoId: avaliacaoRef.id,
+    });
+    transaction.set(avaliacaoRef, {
+      statusAnterior: dados.status || "pendente",
+      status,
+      comentario: comentarioFinal,
+      adminId: usuario.uid,
+      adminNome,
+      criadoEm: horario,
+    });
+    if (dados.promotorId) {
+      transaction.set(notificacaoRef, {
+        ...dadosNotificacao(status, dados.lojaNome || "Loja nao informada", comentarioLimpo),
+        destinatarioId: dados.promotorId,
+        fotoId: foto.id,
+        lojaNome: dados.lojaNome || "",
+        status,
+        comentarioAdmin: comentarioFinal,
+        lida: false,
+        criadoEm: horario,
+      });
+    }
+  });
+}
+
+export async function avaliarFotosDaVisita(
+  fotos: Foto[],
+  status: StatusAvaliacao,
+  comentario = "",
+) {
+  const comentarioLimpo = comentario.trim();
+  if (status !== "aprovada" && !comentarioLimpo) {
+    throw new Error("Informe o motivo da avaliacao da visita.");
+  }
+  const unicas = [...new Map(fotos.map((foto) => [foto.id, foto])).values()];
+  let concluidas = 0;
+  // Cada foto e sua notificacao/historico sao atomicos; uma falha informa o progresso real.
+  for (const foto of unicas) {
+    try {
+      await atualizarFotoComNotificacao({
+        foto,
+        status,
+        comentario: status === "aprovada" ? "" : comentarioLimpo,
+      });
+      concluidas++;
+    } catch (error) {
+      throw new Error(`${concluidas} de ${unicas.length} fotos avaliadas. ${error instanceof Error ? error.message : "Nao foi possivel concluir a visita."}`);
+    }
+  }
 }

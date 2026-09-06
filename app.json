@@ -39,9 +39,15 @@
         {
           "photosPermission": "Permita que o app acesse suas fotos.",
           "savePhotosPermission": "Permita que o app salve fotos na galeria.",
-          "granularPermissions": ["photo"]
+          "granularPermissions": [
+            "photo"
+          ]
         }
-      ]
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

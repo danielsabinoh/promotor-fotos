@@ -27,12 +27,20 @@ service cloud.firestore {
         && usuarioAtual().tipo == "super_admin";
     }
 
-    match /usuarios/{usuarioId} {
-      allow read: if usuarioAtivo()
-        && (request.auth.uid == usuarioId || admin());
+    function equipe(dados) {
+      return dados.get("equipeId", "instalacao-principal");
+    }
 
-      allow create: if admin()
-        && request.resource.data.tipo == "promotor";
+    function mesmaEquipe(dados) {
+      return equipe(dados) == equipe(usuarioAtual());
+    }
+
+    match /usuarios/{usuarioId} {
+      allow read: if autenticado()
+        && (request.auth.uid == usuarioId || (admin() && mesmaEquipe(resource.data)));
+
+      // Promotores sao provisionados somente pelo Admin SDK nas Cloud Functions.
+      allow create: if false;
 
       allow create: if superAdmin()
         && request.resource.data.tipo == "admin";
@@ -48,17 +56,6 @@ service cloud.firestore {
             "atualizadoEm"
           ]);
 
-      allow update: if admin()
-        && resource.data.tipo == "promotor"
-        && request.resource.data.tipo == "promotor"
-        && request.resource.data.diff(resource.data)
-          .affectedKeys()
-          .hasOnly([
-            "lojasIds",
-            "ativo",
-            "atualizadoEm"
-          ]);
-
       allow update: if superAdmin()
         && resource.data.tipo == "admin"
         && request.resource.data.tipo == "admin"
@@ -69,13 +66,43 @@ service cloud.firestore {
             "atualizadoEm"
           ]);
 
-      allow delete: if admin()
-        && resource.data.tipo == "promotor";
+      allow delete: if false;
+    }
+
+    match /auditoria_acessos/{eventoId} {
+      allow read: if admin() && mesmaEquipe(resource.data);
+      allow create, update, delete: if false;
     }
 
     match /lojas/{lojaId} {
       allow read: if usuarioAtivo();
       allow create, update, delete: if admin();
+    }
+
+    match /categorias_foto/{categoriaId} {
+      allow read: if usuarioAtivo();
+
+      function categoriaValida() {
+        return request.resource.data.keys().hasOnly([
+            "nome", "ativa", "atualizadoPor", "atualizadoEm"
+          ])
+          && request.resource.data.nome is string
+          && request.resource.data.nome.size() >= 2
+          && request.resource.data.nome.size() <= 60
+          && request.resource.data.ativa is bool
+          && request.resource.data.atualizadoPor == request.auth.uid
+          && request.resource.data.atualizadoEm == request.time;
+      }
+
+      allow create: if admin() && categoriaValida();
+      allow update: if admin() && categoriaValida()
+        && request.resource.data.nome == resource.data.nome;
+      allow delete: if false;
+    }
+
+    function nomeAdministrador() {
+      let nome = usuarioAtual().get("nome", "Administrador");
+      return nome is string ? nome : "Administrador";
     }
 
     match /produtos/{produtoId} {
@@ -84,6 +111,21 @@ service cloud.firestore {
     }
 
     match /fotos/{fotoId} {
+      function avaliacaoRegistrada() {
+        let nova = request.resource.data;
+        let registro = getAfter(
+          /databases/$(database)/documents/fotos/$(fotoId)/avaliacoes/$(nova.ultimaAvaliacaoId)
+        ).data;
+        return nova.avaliadaPorId == request.auth.uid
+          && nova.avaliadaPorNome == nomeAdministrador()
+          && nova.avaliadaEm == request.time
+          && registro.criadoEm == request.time
+          && registro.adminId == request.auth.uid
+          && registro.adminNome == nova.avaliadaPorNome
+          && registro.status == nova.status
+          && registro.comentario == nova.comentarioAdmin;
+      }
+
       allow read: if admin()
         || (
           usuarioAtivo()
@@ -93,7 +135,10 @@ service cloud.firestore {
       allow create: if usuarioAtivo()
         && usuarioAtual().tipo == "promotor"
         && request.resource.data.promotorId == request.auth.uid
-        && request.resource.data.status == "pendente";
+        && request.resource.data.status == "pendente"
+        && !request.resource.data.keys().hasAny([
+          "avaliadaEm", "avaliadaPorId", "avaliadaPorNome", "ultimaAvaliacaoId"
+        ]);
 
       allow update: if usuarioAtivo()
         && usuarioAtual().tipo == "promotor"
@@ -112,7 +157,34 @@ service cloud.firestore {
           || request.resource.data.excluidaPor == null
         );
 
-      allow update, delete: if admin();
+      allow update: if admin() && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          "status", "comentarioAdmin", "avaliadaEm", "avaliadaPorId",
+          "avaliadaPorNome", "ultimaAvaliacaoId"
+        ]) || avaliacaoRegistrada()
+      );
+      allow delete: if admin();
+
+      match /avaliacoes/{avaliacaoId} {
+        allow read: if admin();
+        allow update, delete: if false;
+        allow create: if admin()
+          && request.resource.data.keys().hasOnly([
+            "statusAnterior", "status", "comentario", "adminId", "adminNome", "criadoEm"
+          ])
+          && request.resource.data.status in ["aprovada", "refazer", "rejeitada"]
+          && request.resource.data.comentario is string
+          && request.resource.data.adminId == request.auth.uid
+          && request.resource.data.adminNome == nomeAdministrador()
+          && request.resource.data.criadoEm == request.time
+          && request.resource.data.statusAnterior == get(
+            /databases/$(database)/documents/fotos/$(fotoId)
+          ).data.get("status", "pendente")
+          && getAfter(/databases/$(database)/documents/fotos/$(fotoId)).data.ultimaAvaliacaoId == avaliacaoId
+          && getAfter(/databases/$(database)/documents/fotos/$(fotoId)).data.status == request.resource.data.status
+          && getAfter(/databases/$(database)/documents/fotos/$(fotoId)).data.comentarioAdmin == request.resource.data.comentario
+          && getAfter(/databases/$(database)/documents/fotos/$(fotoId)).data.avaliadaEm == request.time;
+      }
     }
 
     match /visitas/{visitaId} {

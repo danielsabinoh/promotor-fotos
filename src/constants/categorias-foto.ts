@@ -1,4 +1,4 @@
-import { MaterialIcons } from "@expo/vector-icons";
+import type { MaterialIcons } from "@expo/vector-icons";
 
 import {
   CATEGORIA_AVARIA_DEVOLUCAO,

@@ -6,11 +6,12 @@ import {
   type ReactNode,
 } from "react";
 
-import { onAuthStateChanged, type User } from "firebase/auth";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { onSnapshot } from "firebase/firestore";
 
 import { auth } from "@/services/firebaseConfig";
 import { usuarioDoc } from "@/services/usuarios-service";
+import { EQUIPE_PADRAO } from "@/constants/acesso";
 
 export type TipoUsuario = "promotor" | "admin" | "super_admin";
 
@@ -21,6 +22,7 @@ export type PerfilUsuarioAtual = {
   tipo: TipoUsuario | null;
   ativo: boolean;
   fotoBase64?: string;
+  equipeId: string;
 };
 
 type UsuarioContextValue = {
@@ -47,6 +49,8 @@ export function UsuarioProvider({ children }: { children: ReactNode }) {
       if (!atual) {
         setPerfil(null);
         setCarregando(false);
+      } else {
+        setCarregando(true);
       }
     });
   }, []);
@@ -54,7 +58,6 @@ export function UsuarioProvider({ children }: { children: ReactNode }) {
   // Acompanha o documento do usuário em tempo real (snapshot).
   useEffect(() => {
     if (!user) return;
-    setCarregando(true);
 
     const unsubscribe = onSnapshot(
       usuarioDoc(user.uid),
@@ -65,6 +68,12 @@ export function UsuarioProvider({ children }: { children: ReactNode }) {
           return;
         }
         const dados = snap.data();
+        if (dados.ativo === false && dados.statusAcesso !== "convite_pendente") {
+          signOut(auth).catch(() => undefined);
+          setPerfil(null);
+          setCarregando(false);
+          return;
+        }
         setPerfil({
           uid: user.uid,
           nome: dados.nome || user.displayName || "",
@@ -72,6 +81,7 @@ export function UsuarioProvider({ children }: { children: ReactNode }) {
           tipo: (dados.tipo as TipoUsuario) || null,
           ativo: dados.ativo !== false,
           fotoBase64: dados.fotoBase64,
+          equipeId: dados.equipeId || EQUIPE_PADRAO,
         });
         setCarregando(false);
       },

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -21,20 +20,18 @@ import Svg, {
   Polyline,
   Rect,
   Stop,
+  Text as SvgTextNative,
 } from "react-native-svg";
 
 import AdminBottomNav from "@/components/admin-bottom-nav";
-import { useTipoUsuario, useUsuarioAtual } from "@/contexts/usuario-context";
 import { ROTAS } from "@/constants/routes";
+import { useTipoUsuario, useUsuarioAtual } from "@/contexts/usuario-context";
 import { auth } from "@/services/firebaseConfig";
 import { fotosCollection } from "@/services/fotos-service";
 import { lojasCollection } from "@/services/lojas-service";
-import {
-  consultaAdministradores,
-  consultaPromotores,
-} from "@/services/usuarios-service";
-import { useTheme } from "@/theme/theme-context";
+import { consultaPromotores } from "@/services/usuarios-service";
 import type { ThemeColors } from "@/theme/colors";
+import { useTheme } from "@/theme/theme-context";
 import type { Foto } from "@/types/foto";
 import { ehHoje, obterData } from "@/utils/datas";
 import { filtrarFotosAtuais } from "@/utils/fotos";
@@ -87,6 +84,25 @@ const PERIODOS: { valor: Periodo; rotulo: string }[] = [
   { valor: "esteAno", rotulo: "Este ano" },
   { valor: "anoPassado", rotulo: "Ano passado" },
 ];
+
+const PALETAS_ADMIN = {
+  azul: {
+    gradiente: ["#5E96F7", "#1E40AF"] as [string, string],
+    texto: "#2563EB",
+  },
+  verde: {
+    gradiente: ["#34D399", "#059669"] as [string, string],
+    texto: "#16A34A",
+  },
+  roxo: {
+    gradiente: ["#A78BFA", "#6D28D9"] as [string, string],
+    texto: "#7C3AED",
+  },
+  laranja: {
+    gradiente: ["#FB923C", "#DC2626"] as [string, string],
+    texto: "#EA580C",
+  },
+};
 
 function rotuloDoPeriodo(p: Periodo) {
   return PERIODOS.find((item) => item.valor === p)?.rotulo || "Período";
@@ -141,14 +157,10 @@ function gerarSerieGrafico(
         rotulo = i === 0 ? "Hoje" : DIAS_SEMANA[inicio.getDay()];
       } else if (dias === 15) {
         rotulo =
-          i % 2 === 0
-            ? `${inicio.getDate()}/${inicio.getMonth() + 1}`
-            : "";
+          i % 2 === 0 ? `${inicio.getDate()}/${inicio.getMonth() + 1}` : "";
       } else {
         rotulo =
-          i % 5 === 0
-            ? `${inicio.getDate()}/${inicio.getMonth() + 1}`
-            : "";
+          i % 5 === 0 ? `${inicio.getDate()}/${inicio.getMonth() + 1}` : "";
       }
       buckets.push({ rotulo, inicio, fim, valor: 0 });
     }
@@ -168,9 +180,7 @@ function gerarSerieGrafico(
 
       const cada = semanas === 13 ? 2 : 4;
       const rotulo =
-        i % cada === 0
-          ? `${inicio.getDate()}/${inicio.getMonth() + 1}`
-          : "";
+        i % cada === 0 ? `${inicio.getDate()}/${inicio.getMonth() + 1}` : "";
       buckets.push({ rotulo, inicio, fim, valor: 0 });
     }
   } else {
@@ -219,11 +229,10 @@ function gerarSerieGrafico(
 }
 
 export default function Admin() {
-  const { colors, scheme } = useTheme();
+  const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const tipoUsuario = useTipoUsuario();
   const { perfil } = useUsuarioAtual();
-  const [nome, setNome] = useState("");
   const [totalLojas, setTotalLojas] = useState(0);
   const [totalPromotores, setTotalPromotores] = useState(0);
   const [fotos, setFotos] = useState<Foto[]>([]);
@@ -235,27 +244,8 @@ export default function Admin() {
   >([]);
   const [periodo, setPeriodo] = useState<Periodo>("7dias");
   const [seletorPeriodoAberto, setSeletorPeriodoAberto] = useState(false);
-
-  // Paletas dos KPIs — cada cor tem um gradiente vibrante (claro → escuro)
-  // e uma cor saturada pro número grande.
-  const paletas = {
-    azul: {
-      gradiente: ["#5E96F7", "#1E40AF"] as [string, string],
-      texto: "#2563EB",
-    },
-    verde: {
-      gradiente: ["#34D399", "#059669"] as [string, string],
-      texto: "#16A34A",
-    },
-    roxo: {
-      gradiente: ["#A78BFA", "#6D28D9"] as [string, string],
-      texto: "#7C3AED",
-    },
-    laranja: {
-      gradiente: ["#FB923C", "#DC2626"] as [string, string],
-      texto: "#EA580C",
-    },
-  };
+  const [agora, setAgora] = useState(0);
+  const nome = perfil?.nome || "Administrador";
 
   useEffect(() => {
     if (!perfil) return;
@@ -268,8 +258,18 @@ export default function Admin() {
       router.replace(ROTAS.promotor);
       return;
     }
-    setNome(perfil.nome || "Administrador");
   }, [perfil]);
+
+  useEffect(() => {
+    const atualizarAgora = () => setAgora(Date.now());
+    const timeoutId = setTimeout(atualizarAgora, 0);
+    const intervalId = setInterval(atualizarAgora, 60 * 1000);
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearInterval(intervalId);
+    };
+  }, []);
 
   useEffect(() => {
     return onSnapshot(lojasCollection(), (snapshot) => {
@@ -335,7 +335,6 @@ export default function Admin() {
   // Contador do sino: fotos pendentes + refações não atendidas há +2 dias
   const totalNotificacoes = useMemo(() => {
     const limite = 2 * 24 * 60 * 60 * 1000;
-    const agora = Date.now();
     const idsRefeitas = new Set(
       fotos.filter((f) => f.refacaoDeId).map((f) => f.refacaoDeId as string),
     );
@@ -347,7 +346,7 @@ export default function Admin() {
       return agora - data.getTime() >= limite;
     }).length;
     return resumo.pendentes + refacoesPendentes;
-  }, [fotos, resumo.pendentes]);
+  }, [agora, fotos, resumo.pendentes]);
 
   const serieGrafico = useMemo(
     () => gerarSerieGrafico(periodo, fotos),
@@ -364,7 +363,7 @@ export default function Admin() {
         detalhe: loja.nome,
         data: obterData(loja.criadoEm),
         icone: "store",
-        cor: paletas.verde.texto,
+        cor: PALETAS_ADMIN.verde.texto,
         rota: ROTAS.verLojas,
       });
     });
@@ -376,7 +375,7 @@ export default function Admin() {
         detalhe: promotor.nome,
         data: obterData(promotor.criadoEm),
         icone: "person-add",
-        cor: paletas.roxo.texto,
+        cor: PALETAS_ADMIN.roxo.texto,
         rota: ROTAS.gerenciarPromotores,
       });
     });
@@ -388,7 +387,7 @@ export default function Admin() {
         detalhe: `${resumo.pendentes} foto(s) aguardando avaliação`,
         data: new Date(),
         icone: "error-outline",
-        cor: paletas.laranja.texto,
+        cor: PALETAS_ADMIN.laranja.texto,
         rota: ROTAS.verFotos,
       });
     }
@@ -447,9 +446,7 @@ export default function Admin() {
             </Text>
           </View>
 
-          <View
-            style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
-          >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
             <Pressable
               onPress={() => router.push(ROTAS.notificacoesAdmin)}
               accessibilityLabel="Abrir notificações"
@@ -499,8 +496,8 @@ export default function Admin() {
             </Pressable>
 
             <Pressable
-              onPress={() => router.push(ROTAS.perfilAdmin)}
-              accessibilityLabel="Abrir perfil"
+              onPress={() => router.push(ROTAS.configuracoesAdmin)}
+              accessibilityLabel="Abrir configuracoes e perfil"
               style={{
                 width: 46,
                 height: 46,
@@ -544,7 +541,7 @@ export default function Admin() {
               valor={resumo.fotosHoje}
               subtitulo="Novas fotos enviadas"
               icone="photo-camera"
-              paleta={paletas.azul}
+              paleta={PALETAS_ADMIN.azul}
               compacto={compacto}
             />
             <KpiCard
@@ -553,7 +550,7 @@ export default function Admin() {
               valor={totalLojas}
               subtitulo="Total de lojas"
               icone="store"
-              paleta={paletas.verde}
+              paleta={PALETAS_ADMIN.verde}
               compacto={compacto}
             />
             <KpiCard
@@ -562,7 +559,7 @@ export default function Admin() {
               valor={totalPromotores}
               subtitulo="Total de promotores"
               icone="groups"
-              paleta={paletas.roxo}
+              paleta={PALETAS_ADMIN.roxo}
               compacto={compacto}
             />
             <KpiCard
@@ -571,7 +568,7 @@ export default function Admin() {
               valor={resumo.pendentes}
               subtitulo="Itens pendentes"
               icone="error-outline"
-              paleta={paletas.laranja}
+              paleta={PALETAS_ADMIN.laranja}
               compacto={compacto}
             />
           </View>
@@ -716,14 +713,14 @@ export default function Admin() {
               colors={colors}
               titulo="Novo promotor"
               icone="person-add"
-              cor={paletas.azul.texto}
+              cor={PALETAS_ADMIN.azul.texto}
               onPress={() => router.push(ROTAS.cadastroPromotor)}
             />
             <BotaoAcao
               colors={colors}
               titulo="Nova loja"
               icone="add-business"
-              cor={paletas.verde.texto}
+              cor={PALETAS_ADMIN.verde.texto}
               onPress={() => router.push(ROTAS.cadastroLoja)}
             />
             {tipoUsuario === "super_admin" ? (
@@ -731,13 +728,12 @@ export default function Admin() {
                 colors={colors}
                 titulo="Novo administrador"
                 icone="admin-panel-settings"
-                cor={paletas.roxo.texto}
+                cor={PALETAS_ADMIN.roxo.texto}
                 onPress={() => router.push(ROTAS.cadastroAdmin)}
               />
             ) : null}
           </View>
         </Card>
-
       </ScrollView>
 
       <AdminBottomNav abaAtiva="dashboard" tipoUsuario={tipoUsuario} />
@@ -818,11 +814,7 @@ function KpiCard({
         boxShadow: sombra,
       }}
     >
-      <IconeGradiente
-        icone={icone}
-        gradiente={paleta.gradiente}
-        tamanho={56}
-      />
+      <IconeGradiente icone={icone} gradiente={paleta.gradiente} tamanho={56} />
       <Text style={{ color: colors.textMuted, fontSize: 13 }}>{titulo}</Text>
       <Text
         style={{
@@ -852,7 +844,10 @@ function IconeGradiente({
   tamanho?: number;
 }) {
   // ID único pro defs do SVG (pra não conflitar quando vários gradientes coexistirem).
-  const idGrad = `g-${gradiente[0]}-${gradiente[1]}`.replace(/[^a-zA-Z0-9]/g, "");
+  const idGrad = `g-${gradiente[0]}-${gradiente[1]}`.replace(
+    /[^a-zA-Z0-9]/g,
+    "",
+  );
   const raio = tamanho * 0.24;
 
   return (
@@ -1010,9 +1005,7 @@ function GraficoLinha({
             key={`dia-${i}`}
             x={p.x}
             y={altura - 8}
-            fill={
-              i === pontos.length - 1 ? colors.primary : colors.textSubtle
-            }
+            fill={i === pontos.length - 1 ? colors.primary : colors.textSubtle}
             fontSize={11}
             fontWeight={i === pontos.length - 1 ? "bold" : "normal"}
             textAnchor="middle"
@@ -1063,117 +1056,6 @@ function BotaoAcao({
         {titulo}
       </Text>
     </Pressable>
-  );
-}
-
-function BottomNavLegacy({
-  colors,
-  tipoUsuario,
-}: {
-  colors: ThemeColors;
-  tipoUsuario: "admin" | "super_admin";
-}) {
-  const { scheme } = useTheme();
-  const corBorda =
-    scheme === "light" ? "rgba(15,23,42,0.06)" : "rgba(255,255,255,0.06)";
-  const sombra =
-    scheme === "light"
-      ? "0 2px 10px rgba(15,23,42,0.06)"
-      : "0 2px 10px rgba(0,0,0,0.35)";
-
-  const abas: {
-    titulo: string;
-    icone: keyof typeof MaterialIcons.glyphMap;
-    cor: string;
-    ativo?: boolean;
-    onPress?: () => void;
-  }[] = [
-    {
-      titulo: "Dashboard",
-      icone: "dashboard",
-      cor: "#2563EB",
-      ativo: true,
-    },
-    {
-      titulo: "Promotores",
-      icone: "groups",
-      cor: "#7C3AED",
-      onPress: () => router.push(ROTAS.gerenciarPromotores),
-    },
-    {
-      titulo: "Lojas",
-      icone: "store",
-      cor: "#16A34A",
-      onPress: () => router.push(ROTAS.verLojas),
-    },
-    {
-      titulo: tipoUsuario === "super_admin" ? "Admins" : "Fotos",
-      icone:
-        tipoUsuario === "super_admin" ? "admin-panel-settings" : "photo-library",
-      cor: "#EA580C",
-      onPress: () =>
-        router.push(
-          tipoUsuario === "super_admin"
-            ? ROTAS.gerenciarAdmins
-            : ROTAS.verFotos,
-        ),
-    },
-  ];
-
-  return (
-    <View
-      style={{
-        position: "absolute",
-        bottom: 18,
-        left: 14,
-        right: 14,
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: corBorda,
-        borderRadius: 14,
-        paddingTop: 10,
-        paddingBottom: 10,
-        paddingHorizontal: 8,
-        flexDirection: "row",
-        boxShadow: sombra,
-      }}
-    >
-      {abas.map((aba) => (
-        <Pressable
-          key={aba.titulo}
-          onPress={aba.onPress}
-          disabled={aba.ativo}
-          style={{
-            flex: 1,
-            alignItems: "center",
-            paddingVertical: 4,
-            gap: 4,
-          }}
-        >
-          <MaterialIcons name={aba.icone} size={28} color={aba.cor} />
-          <Text
-            style={{
-              color: aba.ativo ? aba.cor : colors.textSubtle,
-              fontSize: 11,
-              fontWeight: aba.ativo ? "bold" : "normal",
-            }}
-          >
-            {aba.titulo}
-          </Text>
-          {aba.ativo ? (
-            <View
-              style={{
-                width: 24,
-                height: 2,
-                borderRadius: 1,
-                backgroundColor: aba.cor,
-                marginTop: 2,
-              }}
-            />
-          ) : null}
-        </Pressable>
-      ))}
-    </View>
   );
 }
 
@@ -1265,7 +1147,11 @@ function SeletorPeriodo({
                   {item.rotulo}
                 </Text>
                 {selecionado ? (
-                  <MaterialIcons name="check" size={20} color={colors.primary} />
+                  <MaterialIcons
+                    name="check"
+                    size={20}
+                    color={colors.primary}
+                  />
                 ) : null}
               </Pressable>
             );
@@ -1292,7 +1178,4 @@ function tempoRelativo(data: Date) {
 
 // react-native-svg exporta Text como "Text" mesmo, mas conflita com Text de RN.
 // Renomeamos no import abaixo.
-function SvgText(props: any) {
-  const SvgTextNative = require("react-native-svg").Text;
-  return <SvgTextNative {...props} />;
-}
+const SvgText = SvgTextNative;

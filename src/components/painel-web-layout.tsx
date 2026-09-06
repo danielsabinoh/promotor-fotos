@@ -152,9 +152,9 @@ export default function PainelWebLayout({
               justifyContent: "flex-end",
             }}
           >
-            <Link href={ROTAS.painelPerfil} asChild>
+            <Link href={ROTAS.painelConfiguracoes} asChild>
               <Pressable
-                accessibilityLabel="Abrir perfil"
+                accessibilityLabel="Abrir configuracoes e perfil"
                 style={{
                   minHeight: 40,
                   borderWidth: 1,

@@ -10,6 +10,7 @@ import {
 
 import { ROTAS } from "@/constants/routes";
 import { auth } from "@/services/firebaseConfig";
+import { aceitarConvitePendente } from "@/services/gestao-acessos";
 import { buscarUsuario } from "@/services/usuarios-service";
 import { useTheme } from "@/theme/theme-context";
 
@@ -28,6 +29,8 @@ export default function Home() {
       );
 
       const uid = userCredential.user.uid;
+
+      await aceitarConvitePendente();
 
       const usuarioSnap = await buscarUsuario(uid);
 
@@ -69,7 +72,13 @@ export default function Home() {
         Alert.alert("Erro", "Tipo de usuário inválido.");
       }
     } catch (error: any) {
-      Alert.alert("Erro", error.message);
+      await signOut(auth).catch(() => undefined);
+      Alert.alert(
+        "Erro",
+        error?.code === "auth/user-disabled"
+          ? "Este acesso esta desativado."
+          : error.message,
+      );
     }
   }
 
