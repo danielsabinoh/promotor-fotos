@@ -27,12 +27,20 @@ service cloud.firestore {
         && usuarioAtual().tipo == "super_admin";
     }
 
-    match /usuarios/{usuarioId} {
-      allow read: if usuarioAtivo()
-        && (request.auth.uid == usuarioId || admin());
+    function equipe(dados) {
+      return dados.get("equipeId", "instalacao-principal");
+    }
 
-      allow create: if admin()
-        && request.resource.data.tipo == "promotor";
+    function mesmaEquipe(dados) {
+      return equipe(dados) == equipe(usuarioAtual());
+    }
+
+    match /usuarios/{usuarioId} {
+      allow read: if autenticado()
+        && (request.auth.uid == usuarioId || (admin() && mesmaEquipe(resource.data)));
+
+      // Promotores sao provisionados somente pelo Admin SDK nas Cloud Functions.
+      allow create: if false;
 
       allow create: if superAdmin()
         && request.resource.data.tipo == "admin";
@@ -48,17 +56,6 @@ service cloud.firestore {
             "atualizadoEm"
           ]);
 
-      allow update: if admin()
-        && resource.data.tipo == "promotor"
-        && request.resource.data.tipo == "promotor"
-        && request.resource.data.diff(resource.data)
-          .affectedKeys()
-          .hasOnly([
-            "lojasIds",
-            "ativo",
-            "atualizadoEm"
-          ]);
-
       allow update: if superAdmin()
         && resource.data.tipo == "admin"
         && request.resource.data.tipo == "admin"
@@ -69,8 +66,12 @@ service cloud.firestore {
             "atualizadoEm"
           ]);
 
-      allow delete: if admin()
-        && resource.data.tipo == "promotor";
+      allow delete: if false;
+    }
+
+    match /auditoria_acessos/{eventoId} {
+      allow read: if admin() && mesmaEquipe(resource.data);
+      allow create, update, delete: if false;
     }
 
     match /lojas/{lojaId} {

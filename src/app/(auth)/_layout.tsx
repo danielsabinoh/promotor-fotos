@@ -37,6 +37,11 @@ export default function AuthLayout() {
         const usuarioSnap = await buscarUsuario(usuarioAtual.uid);
         const dados = usuarioSnap.data();
 
+        if (dados?.statusAcesso === "convite_pendente") {
+          if (ativo) setCarregando(false);
+          return;
+        }
+
         if (!dados || dados.ativo === false) {
           await signOut(auth);
           if (ativo) setCarregando(false);

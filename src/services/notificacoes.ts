@@ -12,6 +12,7 @@ import { fotoDoc } from "./fotos-service";
 import { usuarioDoc } from "./usuarios-service";
 import { notificacoesCollection } from "./notificacoes-service";
 import type { Foto } from "../types/foto";
+import type { StatusAvaliacao } from "../types/avaliacao-foto";
 
 type FotoNotificavel = Pick<Foto, "id" | "lojaNome" | "promotorId">;
 
@@ -115,16 +116,28 @@ export async function atualizarFotoComNotificacao({
   });
 }
 
-export async function aprovarFotosDaVisita(fotos: Foto[]) {
+export async function avaliarFotosDaVisita(
+  fotos: Foto[],
+  status: StatusAvaliacao,
+  comentario = "",
+) {
+  const comentarioLimpo = comentario.trim();
+  if (status !== "aprovada" && !comentarioLimpo) {
+    throw new Error("Informe o motivo da avaliacao da visita.");
+  }
   const unicas = [...new Map(fotos.map((foto) => [foto.id, foto])).values()];
   let concluidas = 0;
   // Cada foto e sua notificacao/historico sao atomicos; uma falha informa o progresso real.
   for (const foto of unicas) {
     try {
-      await atualizarFotoComNotificacao({ foto, status: "aprovada", comentario: "" });
+      await atualizarFotoComNotificacao({
+        foto,
+        status,
+        comentario: status === "aprovada" ? "" : comentarioLimpo,
+      });
       concluidas++;
     } catch (error) {
-      throw new Error(`${concluidas} de ${unicas.length} fotos confirmadas como aprovadas. ${error instanceof Error ? error.message : "Nao foi possivel concluir a visita."}`);
+      throw new Error(`${concluidas} de ${unicas.length} fotos avaliadas. ${error instanceof Error ? error.message : "Nao foi possivel concluir a visita."}`);
     }
   }
 }

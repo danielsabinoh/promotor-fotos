@@ -13,7 +13,7 @@ import {
 
 import { MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { onSnapshot, serverTimestamp } from "firebase/firestore";
+import { onSnapshot } from "firebase/firestore";
 
 import AdminBottomNav from "@/components/admin-bottom-nav";
 import ModalFiltroStatus, {
@@ -21,14 +21,17 @@ import ModalFiltroStatus, {
   type Ordenacao,
 } from "@/components/modal-filtro-status";
 import { ROTAS } from "@/constants/routes";
-import { useTipoUsuario } from "@/contexts/usuario-context";
+import { useTipoUsuario, useUsuarioAtual } from "@/contexts/usuario-context";
 import { useEstadoPersistido } from "@/hooks/use-estado-persistido";
 import { lojasCollection } from "@/services/lojas-service";
+import { consultaPromotores } from "@/services/usuarios-service";
 import {
-  atualizarUsuario,
-  consultaPromotores,
-  excluirUsuario,
-} from "@/services/usuarios-service";
+  alterarStatusPromotor,
+  atualizarPromotorAdministrativamente,
+  enviarRedefinicaoSenhaPromotor,
+  reenviarConvitePromotor,
+} from "@/services/gestao-acessos";
+import { emailParecePessoal } from "@/constants/acesso";
 import { useTheme } from "@/theme/theme-context";
 import type { ThemeColors } from "@/theme/colors";
 import type { Loja } from "@/types/loja";
@@ -80,12 +83,14 @@ export default function GerenciarPromotores() {
   const [promotorEditado, setPromotorEditado] =
     useState<PromotorGerenciado | null>(null);
   const [lojasSelecionadas, setLojasSelecionadas] = useState<string[]>([]);
+  const [nomeEditado, setNomeEditado] = useState("");
+  const [emailEditado, setEmailEditado] = useState("");
   const [salvando, setSalvando] = useState(false);
-  const [excluindoId, setExcluindoId] = useState<string | null>(null);
   const [menuAberto, setMenuAberto] = useState<PromotorGerenciado | null>(null);
   const [detalhesAberto, setDetalhesAberto] =
     useState<PromotorGerenciado | null>(null);
   const tipoUsuario = useTipoUsuario();
+  const { perfil } = useUsuarioAtual();
   const [filtro, setFiltro] = useEstadoPersistido<FiltroStatus>(
     "promotores:filtro",
     "todos",
@@ -111,7 +116,7 @@ export default function GerenciarPromotores() {
 
   useEffect(() => {
     return onSnapshot(
-      consultaPromotores(),
+      consultaPromotores(perfil?.equipeId),
       (snapshot) => {
         const lista = snapshot.docs.map((item) => ({
           id: item.id,
@@ -125,7 +130,7 @@ export default function GerenciarPromotores() {
         Alert.alert("Erro", "Nao foi possivel carregar os promotores.");
       },
     );
-  }, []);
+  }, [perfil?.equipeId]);
 
   useEffect(() => {
     return onSnapshot(
@@ -192,6 +197,8 @@ export default function GerenciarPromotores() {
   function abrirEdicaoLojas(promotor: PromotorGerenciado) {
     setMenuAberto(null);
     setPromotorEditado(promotor);
+    setNomeEditado(promotor.nome || "");
+    setEmailEditado(promotor.email || "");
     setLojasSelecionadas(promotor.lojasIds || []);
   }
 
@@ -205,18 +212,19 @@ export default function GerenciarPromotores() {
 
   async function salvarLojas() {
     if (!promotorEditado || salvando) return;
-    if (lojasSelecionadas.length === 0) {
-      Alert.alert("Atencao", "Selecione pelo menos uma loja.");
+    if (!nomeEditado.trim() || !emailEditado.trim() || lojasSelecionadas.length === 0) {
+      Alert.alert("Atencao", "Preencha nome, email e selecione pelo menos uma loja.");
       return;
     }
     try {
       setSalvando(true);
-      await atualizarUsuario(promotorEditado.id, {
+      await atualizarPromotorAdministrativamente(promotorEditado.id, {
+        nome: nomeEditado.trim(),
+        email: emailEditado.trim().toLowerCase(),
         lojasIds: lojasSelecionadas,
-        atualizadoEm: serverTimestamp(),
       });
       setPromotorEditado(null);
-      Alert.alert("Sucesso", "Lojas do promotor atualizadas.");
+      Alert.alert("Sucesso", "Dados do promotor atualizados e registrados.");
     } catch (error: any) {
       console.log(error);
       Alert.alert("Erro", error.message || "Nao foi possivel salvar.");
@@ -240,10 +248,7 @@ export default function GerenciarPromotores() {
           style: estaAtivo ? "destructive" : "default",
           onPress: async () => {
             try {
-              await atualizarUsuario(promotor.id, {
-                ativo: !estaAtivo,
-                atualizadoEm: serverTimestamp(),
-              });
+              await alterarStatusPromotor(promotor.id, !estaAtivo);
             } catch (error: any) {
               console.log(error);
               Alert.alert(
@@ -257,37 +262,19 @@ export default function GerenciarPromotores() {
     );
   }
 
-  function excluirPromotor(promotor: PromotorGerenciado) {
+  async function enviarEmailAcesso(promotor: PromotorGerenciado) {
     setMenuAberto(null);
-    Alert.alert(
-      "Excluir cadastro",
-      `Deseja excluir permanentemente o cadastro de ${promotor.nome}? As fotos enviadas por esse promotor serao preservadas.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir permanentemente",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setExcluindoId(promotor.id);
-              await excluirUsuario(promotor.id);
-              Alert.alert(
-                "Cadastro removido",
-                `O acesso ao aplicativo foi removido e as fotos foram preservadas.\n\nPara concluir a exclusao da credencial, remova manualmente no Firebase Authentication:\n${promotor.email}`,
-              );
-            } catch (error: any) {
-              console.log(error);
-              Alert.alert(
-                "Erro",
-                error.message || "Nao foi possivel excluir o cadastro.",
-              );
-            } finally {
-              setExcluindoId(null);
-            }
-          },
-        },
-      ],
-    );
+    try {
+      if (promotor.statusAcesso === "convite_pendente") {
+        await reenviarConvitePromotor(promotor.id);
+        Alert.alert("Convite reenviado", `Enviamos um novo convite para ${promotor.email}.`);
+      } else {
+        await enviarRedefinicaoSenhaPromotor(promotor.id);
+        Alert.alert("Email enviado", `Enviamos a redefinicao de senha para ${promotor.email}.`);
+      }
+    } catch (error: any) {
+      Alert.alert("Erro", error.message || "Nao foi possivel enviar o email.");
+    }
   }
 
   function nomesLojas(promotor: PromotorGerenciado) {
@@ -475,7 +462,6 @@ export default function GerenciarPromotores() {
         corBorda={corBordaSuave}
         promotor={detalhesAberto}
         lojasMap={lojas}
-        excluindoId={excluindoId}
         onFechar={() => setDetalhesAberto(null)}
         onAlterarLojas={(p) => {
           setDetalhesAberto(null);
@@ -485,9 +471,9 @@ export default function GerenciarPromotores() {
           setDetalhesAberto(null);
           alterarAcesso(p);
         }}
-        onExcluir={(p) => {
+        onEnviarEmail={(p) => {
           setDetalhesAberto(null);
-          excluirPromotor(p);
+          enviarEmailAcesso(p);
         }}
       />
 
@@ -508,14 +494,13 @@ export default function GerenciarPromotores() {
         colors={colors}
         corBorda={corBordaSuave}
         promotor={menuAberto}
-        excluindoId={excluindoId}
         onFechar={() => setMenuAberto(null)}
         onAlterarLojas={abrirEdicaoLojas}
         onAlterarAcesso={alterarAcesso}
-        onExcluir={excluirPromotor}
+        onEnviarEmail={enviarEmailAcesso}
       />
 
-      {/* Modal: edição de lojas (mantido) */}
+      {/* Modal: edicao dos dados permitidos */}
       <Modal
         visible={!!promotorEditado}
         transparent
@@ -544,8 +529,26 @@ export default function GerenciarPromotores() {
             <Text
               style={{ color: colors.text, fontSize: 20, fontWeight: "bold" }}
             >
-              Lojas de {promotorEditado?.nome}
+              Editar {promotorEditado?.nome}
             </Text>
+
+            <TextInput
+              value={nomeEditado}
+              onChangeText={setNomeEditado}
+              placeholder="Nome completo"
+              placeholderTextColor={colors.placeholder}
+              style={{ minHeight: 48, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 8, paddingHorizontal: 12, color: colors.text, backgroundColor: colors.backgroundAlt }}
+            />
+            <TextInput
+              value={emailEditado}
+              onChangeText={setEmailEditado}
+              placeholder="Email"
+              placeholderTextColor={colors.placeholder}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              style={{ minHeight: 48, borderWidth: 1, borderColor: colors.borderStrong, borderRadius: 8, paddingHorizontal: 12, color: colors.text, backgroundColor: colors.backgroundAlt }}
+            />
+            {emailParecePessoal(emailEditado) ? <Text style={{ color: colors.warning, fontSize: 12 }}>Email pessoal permitido. Prefira o corporativo quando possivel.</Text> : null}
 
             <ScrollView>
               <View style={{ gap: 8 }}>
@@ -837,25 +840,24 @@ function ModalDetalhesPromotor({
   corBorda,
   promotor,
   lojasMap,
-  excluindoId,
   onFechar,
   onAlterarLojas,
   onAlterarAcesso,
-  onExcluir,
+  onEnviarEmail,
 }: {
   colors: ThemeColors;
   corBorda: string;
   promotor: PromotorGerenciado | null;
   lojasMap: Loja[];
-  excluindoId: string | null;
   onFechar: () => void;
   onAlterarLojas: (p: PromotorGerenciado) => void;
   onAlterarAcesso: (p: PromotorGerenciado) => void;
-  onExcluir: (p: PromotorGerenciado) => void;
+  onEnviarEmail: (p: PromotorGerenciado) => void;
 }) {
   if (!promotor) return null;
 
   const ativo = promotor.ativo !== false;
+  const convitePendente = promotor.statusAcesso === "convite_pendente";
   const avatar = corPorNome(promotor.nome || promotor.email || "?");
   const iniciais = iniciaisDoNome(promotor.nome || promotor.email || "?");
   const dataCriacao = obterData(promotor.criadoEm);
@@ -1045,7 +1047,7 @@ function ModalDetalhesPromotor({
                     fontWeight: "bold",
                   }}
                 >
-                  {ativo ? "Ativo" : "Inativo"}
+                  {convitePendente ? "Convite pendente" : ativo ? "Ativo" : "Inativo"}
                 </Text>
               </View>
 
@@ -1088,12 +1090,7 @@ function ModalDetalhesPromotor({
             icone="person-outline"
             rotulo="Nome completo"
             valor={promotor.nome || "Sem nome"}
-            onEditar={() =>
-              Alert.alert(
-                "Em breve",
-                "A edição do nome estará disponível em uma próxima atualização.",
-              )
-            }
+            onEditar={() => onAlterarLojas(promotor)}
           />
 
           {/* Email */}
@@ -1103,12 +1100,7 @@ function ModalDetalhesPromotor({
             icone="mail-outline"
             rotulo="E-mail"
             valor={promotor.email || "—"}
-            onEditar={() =>
-              Alert.alert(
-                "Em breve",
-                "A edição do e-mail estará disponível em uma próxima atualização.",
-              )
-            }
+            onEditar={() => onAlterarLojas(promotor)}
           />
 
           {/* Data de criação */}
@@ -1238,6 +1230,16 @@ function ModalDetalhesPromotor({
           {/* Ações */}
           <View style={{ gap: 12, paddingTop: 10 }}>
             <Pressable
+              onPress={() => onEnviarEmail(promotor)}
+              style={{ minHeight: 54, borderRadius: 12, borderWidth: 1.5, borderColor: colors.primary, backgroundColor: colors.surface, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+            >
+              <MaterialIcons name={convitePendente ? "forward-to-inbox" : "lock-reset"} size={20} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontWeight: "bold", fontSize: 15 }}>
+                {convitePendente ? "Reenviar convite" : "Enviar redefinicao de senha"}
+              </Text>
+            </Pressable>
+
+            {!convitePendente ? <Pressable
               onPress={() => onAlterarAcesso(promotor)}
               style={{
                 minHeight: 54,
@@ -1265,35 +1267,7 @@ function ModalDetalhesPromotor({
               >
                 {ativo ? "Desativar acesso" : "Reativar acesso"}
               </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => onExcluir(promotor)}
-              disabled={excluindoId === promotor.id}
-              style={{
-                minHeight: 54,
-                borderRadius: 12,
-                backgroundColor: "#DC2626",
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                opacity: excluindoId === promotor.id ? 0.6 : 1,
-              }}
-            >
-              <MaterialIcons
-                name="delete-outline"
-                size={20}
-                color="white"
-              />
-              <Text
-                style={{ color: "white", fontWeight: "bold", fontSize: 15 }}
-              >
-                {excluindoId === promotor.id
-                  ? "Excluindo..."
-                  : "Excluir cadastro"}
-              </Text>
-            </Pressable>
+            </Pressable> : null}
           </View>
         </ScrollView>
       </View>
@@ -1379,24 +1353,22 @@ function MenuAcoes({
   colors,
   corBorda,
   promotor,
-  excluindoId,
   onFechar,
   onAlterarLojas,
   onAlterarAcesso,
-  onExcluir,
+  onEnviarEmail,
 }: {
   colors: ThemeColors;
   corBorda: string;
   promotor: PromotorGerenciado | null;
-  excluindoId: string | null;
   onFechar: () => void;
   onAlterarLojas: (p: PromotorGerenciado) => void;
   onAlterarAcesso: (p: PromotorGerenciado) => void;
-  onExcluir: (p: PromotorGerenciado) => void;
+  onEnviarEmail: (p: PromotorGerenciado) => void;
 }) {
   if (!promotor) return null;
   const ativo = promotor.ativo !== false;
-  const excluindo = excluindoId === promotor.id;
+  const convitePendente = promotor.statusAcesso === "convite_pendente";
 
   return (
     <Modal
@@ -1440,34 +1412,25 @@ function MenuAcoes({
 
           <ItemMenu
             colors={colors}
-            icone="store"
+            icone="edit"
             corIcone={colors.primary}
-            titulo="Alterar lojas"
+            titulo="Editar dados"
             onPress={() => onAlterarLojas(promotor)}
           />
           <ItemMenu
+            colors={colors}
+            icone={convitePendente ? "forward-to-inbox" : "lock-reset"}
+            corIcone={colors.primary}
+            titulo={convitePendente ? "Reenviar convite" : "Enviar redefinicao de senha"}
+            onPress={() => onEnviarEmail(promotor)}
+          />
+          {!convitePendente ? <ItemMenu
             colors={colors}
             icone={ativo ? "block" : "check-circle"}
             corIcone={ativo ? "#B45309" : "#16A34A"}
             titulo={ativo ? "Desativar acesso" : "Reativar acesso"}
             onPress={() => onAlterarAcesso(promotor)}
-          />
-          <View
-            style={{
-              height: 1,
-              backgroundColor: corBorda,
-              marginVertical: 4,
-            }}
-          />
-          <ItemMenu
-            colors={colors}
-            icone="delete-outline"
-            corIcone="#DC2626"
-            titulo={excluindo ? "Excluindo..." : "Excluir cadastro"}
-            corTexto="#DC2626"
-            onPress={() => onExcluir(promotor)}
-            disabled={excluindo}
-          />
+          /> : null}
         </Pressable>
       </Pressable>
     </Modal>

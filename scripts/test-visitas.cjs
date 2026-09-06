@@ -128,16 +128,22 @@ test("promotor ou admin desativado nao avalia", async () => {
     assert.equal(dados.get("fotos/f1").status, "pendente");
   }
 });
-test("aprovacao da visita registra cada foto e nao duplica ids", async () => {
+test("avaliacao da visita registra cada foto e nao duplica ids", async () => {
   const { servico, dados } = prepararServico();
-  await servico.aprovarFotosDaVisita([{ id: "f1" }, { id: "f2" }, { id: "f1" }]);
-  assert.equal(dados.get("fotos/f1").status, "aprovada");
-  assert.equal(dados.get("fotos/f2").status, "aprovada");
+  await servico.avaliarFotosDaVisita([{ id: "f1" }, { id: "f2" }, { id: "f1" }], "rejeitada", "Fora do padrao");
+  assert.equal(dados.get("fotos/f1").status, "rejeitada");
+  assert.equal(dados.get("fotos/f2").status, "rejeitada");
+  assert.equal(dados.get("fotos/f1").comentarioAdmin, "Fora do padrao");
   assert.equal([...dados.keys()].filter((chave) => chave.includes("/avaliacoes/")).length, 2);
 });
-test("aprovacao parcial informa o progresso quando uma foto foi removida", async () => {
+test("avaliacao da visita exige motivo para rejeitar ou refazer", async () => {
   const { servico, dados } = prepararServico();
-  await assert.rejects(servico.aprovarFotosDaVisita([{ id: "f1" }, { id: "removida" }, { id: "f2" }]), /1 de 3 fotos/);
-  assert.equal(dados.get("fotos/f1").status, "aprovada");
+  await assert.rejects(servico.avaliarFotosDaVisita([{ id: "f1" }], "refazer", "  "), /Informe o motivo/);
+  assert.equal(dados.get("fotos/f1").status, "pendente");
+});
+test("avaliacao parcial informa o progresso quando uma foto foi removida", async () => {
+  const { servico, dados } = prepararServico();
+  await assert.rejects(servico.avaliarFotosDaVisita([{ id: "f1" }, { id: "removida" }, { id: "f2" }], "refazer", "Nova imagem"), /1 de 3 fotos/);
+  assert.equal(dados.get("fotos/f1").status, "refazer");
   assert.equal(dados.get("fotos/f2").status, "pendente");
 });

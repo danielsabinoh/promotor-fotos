@@ -18,12 +18,12 @@ type Props = {
   onAbrirFoto: (foto: Foto) => void;
   onVisualizarFoto?: (foto: Foto) => void;
   onMenuFoto?: (foto: Foto) => void;
-  onAprovarVisita: (visita: VisitaFotos) => void;
+  onAvaliarVisita: (visita: VisitaFotos) => void;
 };
 
 const CONFIGURACAO_VISIBILIDADE = { itemVisiblePercentThreshold: 60 };
 
-export default function CardVisitaFotos({ visita, nomePromotor, compacto = false, bloqueado = false, onAbrirFoto, onVisualizarFoto, onMenuFoto, onAprovarVisita }: Props) {
+export default function CardVisitaFotos({ visita, nomePromotor, compacto = false, bloqueado = false, onAbrirFoto, onVisualizarFoto, onMenuFoto, onAvaliarVisita }: Props) {
   const { colors, scheme } = useTheme();
   const [selecionada, setSelecionada] = useState(visita.correspondentes[0] || visita.fotos[0]?.id);
   const [largura, setLargura] = useState(0);
@@ -106,10 +106,10 @@ export default function CardVisitaFotos({ visita, nomePromotor, compacto = false
           <Pressable accessibilityRole="button" accessibilityLabel="Detalhes e historico da foto" onPress={() => onAbrirFoto(foto)} style={botao}>
             <MaterialIcons name="history" size={22} color={colors.textMuted} />
           </Pressable>
-          <Pressable accessibilityRole="button" disabled={bloqueado || resumo.aprovada === total} onPress={() => onAprovarVisita(visita)}
-            style={{ minHeight: 44, flexDirection: "row", gap: 7, alignItems: "center", paddingHorizontal: 10, opacity: bloqueado || resumo.aprovada === total ? 0.4 : 1 }}>
-            <MaterialIcons name="done-all" size={22} color={colors.success} />
-            <Text style={{ color: colors.success, fontWeight: "bold" }}>Aprovar visita</Text>
+          <Pressable accessibilityRole="button" disabled={bloqueado} onPress={() => onAvaliarVisita(visita)}
+            style={{ minHeight: 44, flexDirection: "row", gap: 7, alignItems: "center", paddingHorizontal: 10, opacity: bloqueado ? 0.4 : 1 }}>
+            <MaterialIcons name="playlist-add-check" size={22} color={colors.primary} />
+            <Text style={{ color: colors.primary, fontWeight: "bold" }}>Avaliar visita</Text>
           </Pressable>
         </View>
       </View>

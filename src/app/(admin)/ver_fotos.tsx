@@ -21,7 +21,7 @@ import { onSnapshot } from "firebase/firestore";
 
 import AdminBottomNav from "@/components/admin-bottom-nav";
 import CardVisitaFotos from "@/components/card-visita-fotos";
-import ConfirmarAprovacaoVisita from "@/components/confirmar-aprovacao-visita";
+import AvaliarVisita from "@/components/avaliar-visita";
 import HistoricoAvaliacoes from "@/components/historico-avaliacoes";
 import { agruparFotosPorVisita, type VisitaFotos } from "@/utils/visitas-fotos";
 import ImageViewer from "@/components/photo-zoom-viewer";
@@ -140,7 +140,7 @@ export default function VerFotos() {
   const [excluindoFoto, setExcluindoFoto] = useState(false);
   const [salvandoStatus, setSalvandoStatus] = useState(false);
   const [baixandoFoto, setBaixandoFoto] = useState(false);
-  const [visitaAprovando, setVisitaAprovando] = useState<VisitaFotos | null>(null);
+  const [visitaAvaliando, setVisitaAvaliando] = useState<VisitaFotos | null>(null);
   const fotoDetalhesAtual = fotoDetalhes ? fotos.find((foto) => foto.id === fotoDetalhes.id) || null : null;
 
   /* ---------- Carregamentos ---------- */
@@ -733,13 +733,13 @@ export default function VerFotos() {
             onVisualizarFoto={setFotoVisualizando}
             onAbrirFoto={setFotoDetalhes}
             onMenuFoto={setMenuFoto}
-            onAprovarVisita={setVisitaAprovando}
+            onAvaliarVisita={setVisitaAvaliando}
           />
         )}
       />
 
       <AdminBottomNav abaAtiva="fotos" tipoUsuario={tipoUsuario} />
-      {visitaAprovando ? <ConfirmarAprovacaoVisita visita={visitaAprovando} onFechar={() => setVisitaAprovando(null)} /> : null}
+      {visitaAvaliando ? <AvaliarVisita visita={visitaAvaliando} onFechar={() => setVisitaAvaliando(null)} /> : null}
 
       {/* Modal Filtros */}
       <ModalFiltros

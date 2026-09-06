@@ -9,12 +9,13 @@ nao se presume que fotos da mesma loja e data pertencem a uma visita.
 
 Os filtros selecionam visitas que contenham pelo menos uma foto correspondente.
 O carrossel conserva todas as fotos da visita e indica quantas correspondem ao filtro.
-A aprovacao da visita inclui todas essas fotos, inclusive as fora do filtro.
+A avaliacao da visita inclui todas essas fotos, inclusive as fora do filtro.
 
 ## Avaliacao
 
 - Avaliar foto conserva as opcoes individuais existentes.
-- Aprovar visita pede confirmacao e aprova as fotos sequencialmente.
+- Avaliar visita permite aprovar, rejeitar ou pedir a refacao de todas as fotos.
+- Rejeicao e refacao em lote exigem um motivo, aplicado a cada foto e notificacao.
 - Cada alteracao grava status, nome/ID do administrador autenticado, horario do
   servidor e um evento em fotos/{fotoId}/avaliacoes/{avaliacaoId}.
 - Foto, evento e notificacao sao gravados juntos em uma transacao por foto.

@@ -13,7 +13,7 @@ import {
 
 import { MaterialIcons } from "@expo/vector-icons";
 import CardVisitaFotos from "@/components/card-visita-fotos";
-import ConfirmarAprovacaoVisita from "@/components/confirmar-aprovacao-visita";
+import AvaliarVisita from "@/components/avaliar-visita";
 import HistoricoAvaliacoes from "@/components/historico-avaliacoes";
 import { agruparFotosPorVisita, type VisitaFotos } from "@/utils/visitas-fotos";
 import { onSnapshot } from "firebase/firestore";
@@ -50,7 +50,7 @@ export default function FotosWeb() {
   const [fotos, setFotos] = useState<Foto[]>([]);
   const [fotoSelecionada, setFotoAberta] = useState<Foto | null>(null);
   const fotoAberta = fotoSelecionada ? fotos.find((foto) => foto.id === fotoSelecionada.id) || null : null;
-  const [visitaAprovando, setVisitaAprovando] = useState<VisitaFotos | null>(null);
+  const [visitaAvaliando, setVisitaAvaliando] = useState<VisitaFotos | null>(null);
   const [loja, setLoja] = useState("Todas");
   const [promotor, setPromotor] = useState("Todos");
   const [categoria, setCategoria] = useState("Todas");
@@ -290,7 +290,7 @@ export default function FotosWeb() {
               nomePromotor={nomePromotor(visita.fotos[0])}
               bloqueado={salvando}
               onAbrirFoto={abrirFoto}
-              onAprovarVisita={setVisitaAprovando}
+              onAvaliarVisita={setVisitaAvaliando}
             />
           </View>
         ))}
@@ -322,7 +322,7 @@ export default function FotosWeb() {
         </View>
       ) : null}
 
-      {visitaAprovando ? <ConfirmarAprovacaoVisita visita={visitaAprovando} onFechar={() => setVisitaAprovando(null)} /> : null}
+      {visitaAvaliando ? <AvaliarVisita visita={visitaAvaliando} onFechar={() => setVisitaAvaliando(null)} /> : null}
 
       <Modal
         visible={!!fotoAberta}

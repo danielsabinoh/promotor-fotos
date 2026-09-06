@@ -44,6 +44,7 @@
   },
   "scripts": {
     "start": "expo start",
+    "test": "node --test scripts/test-*.cjs",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
